@@ -51,7 +51,7 @@ ollama pull llama-guard3:8b                     # pull safety model (~5GB)
 - All public schemas live in `guardian_br.core.schemas`. Breaking schema changes require a major version bump and a deprecation notice in the PR description.
 - PII recognizers **must** validate checksums (CPF mod-11, CNPJ mod-11, CNH, PIS) before emitting a detection. A regex match that fails checksum is not a detection — silence it.
 - Every new PII type **must** have a corresponding entry in `lgpd_mapping.yaml` before the PR can merge. Use `/lgpd-rule-add` to walk the checklist.
-- Reversible-redact handles are opaque UUIDs — never JWTs or any format that leaks type or length information. See SPEC §Open Questions #6.
+- Reversible-redact handles are opaque UUIDs — never JWTs or any format that leaks type or length information. See SPEC §Resolved Decisions #6.
 - Use the `regex` library (not stdlib `re`) for **all** recognizer and caller-supplied patterns. Stdlib `re` has no backtrack timeout; `regex` supports `timeout=`. ReDoS is a denial-of-service vector in a guardrails product.
 - Use `secrets.compare_digest` for every token/key comparison (constant-time). Plain `==` on API keys is not acceptable.
 - The audit log stores salted hashes of detections — raw PII must never appear in any log row. Any `logger.*` or `print(` call inside a PII-handling code path is a bug; flag it in review.
@@ -61,8 +61,8 @@ ollama pull llama-guard3:8b                     # pull safety model (~5GB)
 - **Llama Guard cold start > 2s.** The `/healthz` readiness probe blocks until the model is warm. Do not write tests that race a cold container — always wait for the probe.
 - **`RedactStore` Protocol contract suite is authoritative.** Adapter packages (`guardrails-br-postgres`, `guardrails-br-redis`) must pass the full contract test suite in `tests/redact_store/`. There is no partial compliance.
 - **`make eval` is slow (≥30s on CPU).** Use `make eval-quick CATEGORY=<name>` during development. Run the full suite before opening a PR via `/eval`.
-- **Reclame Aqui ToS redistribution rights are unconfirmed.** Until resolved, ship corpus derivatives only — do not bundle raw messages. See SPEC §Open Questions #3.
-- **PyPI package name not yet locked.** SPEC leans `guardrails-br-*` (library) vs. `guardian-br` (brand). See SPEC §Open Questions #1. Do not publish to PyPI before this is resolved.
+- **Reclame Aqui was dropped as a corpus source.** Primary source is Consumidor.gov.br (Decreto 8.573/2015, federal public data) + CGU ouvidoria + C-ORAL-BRASIL. RA may be referenced only for stylistic inspiration when generating synthetic data — never republished verbatim. See SPEC §Resolved Decisions #3.
+- **PyPI package family: `guardrails-br-*`** (core: `guardrails-br`; adapters: `guardrails-br-postgres`, `guardrails-br-redis`; extras: `guardrails-br[aws]`, `guardrails-br[gcp]`, `guardrails-br[dashboard]`). "Guardian-BR" is the human-readable brand only. See SPEC §Resolved Decisions #1.
 
 ## Layout
 
