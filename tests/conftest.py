@@ -179,6 +179,38 @@ def invalid_titulos_eleitor() -> list[str]:
 
 
 @pytest.fixture
+def valid_rgs_sp() -> list[str]:
+    return [
+        "000000000",  # DV=0 (all-zeros synthetic — SPEC Failure Mode #2)
+        "111111110",  # DV=0 (all-ones base synthetic — SPEC Failure Mode #2)
+        "123456789",  # DV=9 (realistic base)
+        "987654322",  # DV=2
+        "600000001",  # DV=1 (6×2=12, 12%11=1)
+        "50000000X",  # DV=X — canonical X-branch pin (5×2=10, 10%11=10→X)
+        "50000000x",  # DV=x lowercase — validator must uppercase internally
+        "12.345.678-9",  # formatted dot+dash (same digits as 123456789)
+        "12345678-9",  # formatted dash only
+        "12.345.6789",  # formatted dots only (no dash)
+    ]
+
+
+@pytest.fixture
+def invalid_rgs_sp() -> list[str]:
+    return [
+        "000000001",  # DV should be 0, not 1
+        "123456788",  # DV should be 9, not 8
+        "500000009",  # DV should be X, not 9 — X-branch regression pin
+        "600000002",  # DV should be 1, not 2
+        "987654321",  # DV should be 2, not 1
+        "12345678",  # 8 chars — too short
+        "1234567890",  # 10 digits — too long
+        "X23456789",  # X in non-DV position (base has X)
+        "12345678Y",  # invalid DV char Y
+        "234567890",  # DV should be 9, not 0 (2*2+3*3+...+9*9=284, 284%11=9)
+    ]
+
+
+@pytest.fixture
 def tmp_corpus(tmp_path: Path) -> Path:
     rows = [
         {

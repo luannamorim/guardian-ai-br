@@ -4,7 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from guardian_br import Guardian, ScanResult
-from guardian_br.core.entities import BR_CNH, BR_CNPJ, BR_CPF, BR_PIS, BR_TITULO_ELEITOR
+from guardian_br.core.entities import BR_CNH, BR_CNPJ, BR_CPF, BR_PIS, BR_RG, BR_TITULO_ELEITOR
 
 
 def test_scan_returns_scan_result() -> None:
@@ -105,11 +105,27 @@ def test_scan_detects_titulo_eleitor() -> None:
     assert result.redacted_text == "título <BR_TITULO_ELEITOR>"
 
 
-def test_scan_detects_all_five_together() -> None:
+def test_scan_detects_rg() -> None:
+    result = Guardian().scan("rg 123456789")
+    assert len(result.detections) == 1
+    det = result.detections[0]
+    assert det.entity_type == BR_RG
+    assert det.lgpd_article == "Art. 5º, I"
+    assert result.redacted_text == "rg <BR_RG>"
+
+
+def test_scan_detects_rg_with_x_dv() -> None:
+    result = Guardian().scan("identidade 50000000X")
+    assert len(result.detections) == 1
+    assert result.detections[0].entity_type == BR_RG
+    assert result.redacted_text == "identidade <BR_RG>"
+
+
+def test_scan_detects_all_six_together() -> None:
     text = (
         "CPF 123.456.789-09 CNPJ 11.222.333/0001-81 "
-        "PIS 123.45678.90-0 CNH 98765432109 título 123456780191"
+        "PIS 123.45678.90-0 CNH 98765432109 título 123456780191 rg 12.345.678-9"
     )
     result = Guardian().scan(text)
     types = {d.entity_type for d in result.detections}
-    assert types == {BR_CPF, BR_CNPJ, BR_PIS, BR_CNH, BR_TITULO_ELEITOR}
+    assert types == {BR_CPF, BR_CNPJ, BR_PIS, BR_CNH, BR_TITULO_ELEITOR, BR_RG}

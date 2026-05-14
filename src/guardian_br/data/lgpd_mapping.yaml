@@ -114,3 +114,31 @@ rules:
       overlap with existing BR recognizers. Mathematically valid synthetic
       títulos are intentionally reported as PII per SPEC Failure Mode #2.
       Do NOT add a rejection rule for synthetic sequences.
+  BR_RG:
+    description: "Registro Geral — Brazilian state-issued identity card number (SP-issued in v1)."
+    sensitivity: "personal"
+    lgpd_articles:
+      - article: "Art. 5º, I"
+        clause: "dado pessoal — informação relacionada a pessoa natural identificada ou identificável"
+      - article: "Art. 6º"
+        clause: "princípio da minimização — uso restrito ao necessário"
+    art7_purpose_bases:
+      - "I"
+      - "V"
+    retention_note: "Mask in transit; do not persist raw value in logs."
+    notes: >
+      RG detection uses a 9-character pattern (8 digits + 1 DV char where
+      the DV may be 0-9 or the letter 'X' meaning 10), with optional dot
+      and dash separators. Gated by the SSP/SP mod-11 checksum.
+
+      v1 scope is SP-issued RGs only. Brazilian state IDs are heterogeneous:
+      only SP publishes a verifiable checksum. Other states' RGs are NOT
+      detected by v1, because a regex-only match on a 9-digit run would
+      fire on phone numbers, order IDs, and other non-PII spans —
+      violating Guardian-BR's "no checksum → no detection" rule. Per-state
+      validators or a low-confidence channel are deferred to v1.1.
+
+      No emit-both overlap with CPF/PIS/CNH (11 digits), CNPJ (14 chars),
+      or título (12 digits) — distinct length. Mathematically valid
+      synthetic RGs are intentionally reported as PII per SPEC Failure
+      Mode #2. Do NOT add a rejection rule for synthetic sequences.

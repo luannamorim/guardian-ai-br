@@ -5,6 +5,7 @@ _CNH_W1 = [9, 8, 7, 6, 5, 4, 3, 2, 1]
 _CNH_W2 = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 _TITULO_W1 = [2, 3, 4, 5, 6, 7, 8, 9]
 _TITULO_W2 = [7, 8, 9]
+_RG_SP_WEIGHTS = [2, 3, 4, 5, 6, 7, 8, 9]
 _TITULO_VALID_STATES: frozenset[str] = frozenset(f"{i:02d}" for i in range(1, 29))
 _TITULO_DV_ZERO_CLAMP_STATES: frozenset[str] = frozenset({"01", "02"})
 
@@ -157,3 +158,32 @@ def validate_titulo_eleitor(digits: str) -> bool:
     if dv2 == 0 and state in _TITULO_DV_ZERO_CLAMP_STATES:
         dv2 = 1
     return int(d[11]) == dv2
+
+
+def validate_rg_sp(value: str) -> bool:
+    """Return True if *value* is a mod-11 valid SP-issued RG.
+
+    SP RG is the only Brazilian state ID with a published checksum: 8 base
+    digits weighted by [2..9] left-to-right, sum mod 11; DV is the digit
+    0-9, except a remainder of 10 is represented by the letter 'X'.
+
+    Strips dots and dashes, uppercases the trailing 'X'. Returns False for
+    inputs that, after normalization, are not exactly 9 chars (8 digits +
+    one DV char). Lowercase 'x' is accepted as DV.
+
+    Per SPEC Failure Mode #2: mathematically valid synthetic RGs such as
+    000000000 are intentionally accepted — masking is content-blind. Do
+    NOT add rejection rules for synthetic sequences.
+    """
+    cleaned = "".join(c for c in value.upper() if c.isdigit() or c == "X")
+    if len(cleaned) != 9:
+        return False
+    base = cleaned[:8]
+    if not base.isdigit():
+        return False
+    dv_char = cleaned[8]
+
+    total = sum(int(base[i]) * _RG_SP_WEIGHTS[i] for i in range(8))
+    dv_num = total % 11
+    expected = "X" if dv_num == 10 else str(dv_num)
+    return dv_char == expected

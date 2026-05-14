@@ -6,6 +6,7 @@ from guardian_br.pii.recognizers.cnh import CnhRecognizer
 from guardian_br.pii.recognizers.cnpj import CnpjRecognizer
 from guardian_br.pii.recognizers.cpf import CpfRecognizer
 from guardian_br.pii.recognizers.pis import PisRecognizer
+from guardian_br.pii.recognizers.rg import RgRecognizer
 from guardian_br.pii.recognizers.titulo_eleitor import TituloEleitorRecognizer
 
 
@@ -34,6 +35,7 @@ def build_default_registry() -> RecognizerRegistry:
     registry.add_recognizer(PisRecognizer())
     registry.add_recognizer(CnhRecognizer())
     registry.add_recognizer(TituloEleitorRecognizer())
+    registry.add_recognizer(RgRecognizer())
     return registry
 
 

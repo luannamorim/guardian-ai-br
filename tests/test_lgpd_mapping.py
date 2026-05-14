@@ -4,7 +4,7 @@ Uses importlib.resources exactly as a user would — no direct file-path reads.
 This also validates that the YAML is packaged into the wheel correctly.
 """
 
-from guardian_br.core.entities import BR_CNH, BR_CNPJ, BR_CPF, BR_PIS, BR_TITULO_ELEITOR
+from guardian_br.core.entities import BR_CNH, BR_CNPJ, BR_CPF, BR_PIS, BR_RG, BR_TITULO_ELEITOR
 from guardian_br.lgpd.loader import LGPDMapping, load_lgpd_mapping
 
 
@@ -101,6 +101,23 @@ def test_br_titulo_eleitor_has_lgpd_articles() -> None:
 def test_br_titulo_eleitor_primary_article() -> None:
     mapping = load_lgpd_mapping()
     rule = mapping.rules[BR_TITULO_ELEITOR]
+    assert rule.lgpd_articles[0].article == "Art. 5º, I"
+
+
+def test_br_rg_rule_present() -> None:
+    mapping = load_lgpd_mapping()
+    assert BR_RG in mapping.rules
+
+
+def test_br_rg_has_lgpd_articles() -> None:
+    mapping = load_lgpd_mapping()
+    rule = mapping.rules[BR_RG]
+    assert len(rule.lgpd_articles) >= 1
+
+
+def test_br_rg_primary_article() -> None:
+    mapping = load_lgpd_mapping()
+    rule = mapping.rules[BR_RG]
     assert rule.lgpd_articles[0].article == "Art. 5º, I"
 
 
