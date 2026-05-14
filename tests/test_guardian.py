@@ -4,7 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from guardian_br import Guardian, ScanResult
-from guardian_br.core.entities import BR_CNPJ, BR_CPF
+from guardian_br.core.entities import BR_CNPJ, BR_CPF, BR_PIS
 
 
 def test_scan_returns_scan_result() -> None:
@@ -66,3 +66,24 @@ def test_scan_detects_cpf_and_cnpj_together() -> None:
     types = {d.entity_type for d in result.detections}
     assert types == {BR_CPF, BR_CNPJ}
     assert result.redacted_text == "CPF <BR_CPF> e CNPJ <BR_CNPJ>"
+
+
+def test_scan_detects_cpf_cnpj_pis_together() -> None:
+    text = "CPF 123.456.789-09 CNPJ 11.222.333/0001-81 PIS 123.45678.90-0"
+    result = Guardian().scan(text)
+    assert len(result.detections) == 3
+    types = {d.entity_type for d in result.detections}
+    assert types == {BR_CPF, BR_CNPJ, BR_PIS}
+    assert result.redacted_text == "CPF <BR_CPF> CNPJ <BR_CNPJ> PIS <BR_PIS>"
+
+
+def test_unformatted_collision_emits_both_when_both_checksums_pass() -> None:
+    """00000000000 satisfies both the CPF and PIS checksums.
+
+    Both recognizers must fire independently — emit-both policy, never
+    deduplicate. Downstream consumers must not assume detection types are
+    mutually exclusive. See lgpd_mapping.yaml BR_PIS notes.
+    """
+    result = Guardian().scan("00000000000")
+    types = sorted(d.entity_type for d in result.detections)
+    assert types == [BR_CPF, BR_PIS]

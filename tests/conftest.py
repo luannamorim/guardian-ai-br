@@ -81,6 +81,38 @@ def invalid_cnpjs() -> list[str]:
 
 
 @pytest.fixture
+def valid_pis() -> list[str]:
+    return [
+        "123.45678.90-0",
+        "987.65432.10-3",
+        "111.11111.10-8",  # all-ones base with computed check digit
+        "234.56789.01-3",
+        "345.67890.12-5",
+        "456.78901.23-6",
+        "56789012346",  # unformatted
+        "678.90123.45-5",
+        "789.01234.56-3",
+        "890.12345.67-0",
+    ]
+
+
+@pytest.fixture
+def invalid_pis() -> list[str]:
+    return [
+        "123.45678.90-1",  # last digit off by 1
+        "123.45678.90-9",  # last digit wrong
+        "987.65432.10-4",  # wrong check digit
+        "000.00000.00-1",  # non-zero digit breaks synthetic all-zero checksum
+        "111.11111.10-9",  # wrong check digit
+        "456.78901.23-7",  # wrong checksum
+        "1234567890",  # 10 digits — too short
+        "123456789000",  # 12 digits — too long
+        "abc.defgh.ij-k",  # non-digit prefix
+        "345.67890.12-6",  # wrong checksum
+    ]
+
+
+@pytest.fixture
 def tmp_corpus(tmp_path: Path) -> Path:
     rows = [
         {

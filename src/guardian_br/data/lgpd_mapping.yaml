@@ -50,3 +50,25 @@ rules:
       co-occurs with — and helps reidentify — the natural persons operating
       those entities (Art. 5º I via association). Do NOT add a rejection rule
       for synthetic sequences.
+  BR_PIS:
+    description: "PIS/PASEP/NIS — Brazilian social-security and employment registry number."
+    sensitivity: "personal"
+    lgpd_articles:
+      - article: "Art. 5º, I"
+        clause: "dado pessoal"
+      - article: "Art. 6º"
+        clause: "princípio da minimização"
+    art7_purpose_bases:
+      - "I"
+      - "V"
+    retention_note: "Mask in transit; do not persist raw value in logs."
+    notes: >
+      PIS detection requires mod-11 checksum validation with weights
+      [3,2,9,8,7,6,5,4,3,2] over the first 10 digits. Mathematically valid
+      synthetic PIS numbers (e.g., 000.00000.00-0) are reported as PII —
+      masking is content-blind by design (SPEC Failure Mode #2). An
+      unformatted 11-digit string that satisfies both the CPF and PIS
+      checksums (rare — ~1/1331 of random 11-digit runs, but exact for
+      00000000000) is flagged as both BR_CPF and BR_PIS; downstream
+      consumers must not assume detection types are mutually exclusive.
+      Do NOT add a rejection rule for synthetic sequences.

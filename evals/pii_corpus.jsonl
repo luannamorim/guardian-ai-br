@@ -19,3 +19,13 @@
 {"text": "12.345.678/0001-96", "labels": [], "category": "cnpj"}
 {"text": "11.222.333/0001-82", "labels": [], "category": "cnpj"}
 {"text": "00.000.000/0000-01", "labels": [], "category": "cnpj"}
+{"text": "123.45678.90-0", "labels": [{"type": "BR_PIS", "start": 0, "end": 14}], "category": "pis"}
+{"text": "987.65432.10-3", "labels": [{"type": "BR_PIS", "start": 0, "end": 14}], "category": "pis"}
+{"text": "234.56789.01-3 para o benefício", "labels": [{"type": "BR_PIS", "start": 0, "end": 14}], "category": "pis"}
+{"text": "meu pis é 345.67890.12-5 no cadastro", "labels": [{"type": "BR_PIS", "start": 10, "end": 24}], "category": "pis"}
+{"text": "número nis 456.78901.23-6 para benefício", "labels": [{"type": "BR_PIS", "start": 11, "end": 25}], "category": "pis"}
+{"text": "56789012346", "labels": [{"type": "BR_PIS", "start": 0, "end": 11}], "category": "pis"}
+{"text": "empresa pis 678.90123.45-5 funcionário", "labels": [{"type": "BR_PIS", "start": 12, "end": 26}], "category": "pis"}
+{"text": "123.45678.90-1", "labels": [], "category": "pis"}
+{"text": "987.65432.10-4", "labels": [], "category": "pis"}
+{"text": "000.00000.00-1", "labels": [], "category": "pis"}
