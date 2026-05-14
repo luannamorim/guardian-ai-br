@@ -70,13 +70,16 @@ ollama pull llama-guard3:8b                     # pull safety model (~5GB)
 guardian-ai-br/
 ├── src/
 │   └── guardian_br/
-│       ├── core/           # schemas, redact_store, audit_log, kms
+│       ├── core/           # schemas, entities
+│       ├── data/           # lgpd_mapping.yaml (packaged into wheel)
 │       ├── pii/            # Presidio recognizers for BR identifiers
 │       │   └── recognizers/
-│       ├── adversarial/    # Llama Guard wrapper + PT-BR classifier
-│       ├── api/            # FastAPI app, routes, auth dependency
-│       ├── dashboard/      # Streamlit dashboard
-│       └── prompts/        # prompt files for Llama Guard context
+│       ├── lgpd/           # LGPD mapping loader
+│       ├── eval/           # benchmark runner (make eval / make eval-quick)
+│       ├── adversarial/    # Llama Guard wrapper + PT-BR classifier [PR3]
+│       ├── api/            # FastAPI app, routes, auth dependency [PR2]
+│       ├── dashboard/      # Streamlit dashboard [PR5]
+│       └── prompts/        # prompt files for Llama Guard context [PR3]
 ├── tests/
 │   ├── redact_store/       # RedactStore Protocol contract suite
 │   ├── pii/
@@ -88,7 +91,6 @@ guardian-ai-br/
 ├── docs/
 │   ├── ARCHITECTURE.md     # [to be written]
 │   └── LGPD_MAPPING.md     # [to be written]
-├── lgpd_mapping.yaml       # canonical guardrail → LGPD article map
 ├── Makefile
 ├── docker-compose.yml
 ├── pyproject.toml

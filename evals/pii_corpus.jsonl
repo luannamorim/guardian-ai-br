@@ -1,0 +1,11 @@
+{"text": "123.456.789-09", "labels": [{"type": "BR_CPF", "start": 0, "end": 14}], "category": "cpf"}
+{"text": "987.654.321-00", "labels": [{"type": "BR_CPF", "start": 0, "end": 14}], "category": "cpf"}
+{"text": "Meu CPF é 345.678.901-75, pode verificar.", "labels": [{"type": "BR_CPF", "start": 10, "end": 24}], "category": "cpf"}
+{"text": "oi meu cpf eh 123.456.789-09 ajuda", "labels": [{"type": "BR_CPF", "start": 14, "end": 28}], "category": "cpf"}
+{"text": "678.901.234-69", "labels": [{"type": "BR_CPF", "start": 0, "end": 14}], "category": "cpf"}
+{"text": "cliente com cpf 56789012303 solicitou reembolso", "labels": [{"type": "BR_CPF", "start": 16, "end": 27}], "category": "cpf"}
+{"text": "789.012.345-05", "labels": [{"type": "BR_CPF", "start": 0, "end": 14}], "category": "cpf"}
+{"text": "documento: 456.789.012-49", "labels": [{"type": "BR_CPF", "start": 11, "end": 25}], "category": "cpf"}
+{"text": "123.456.789-00", "labels": [], "category": "cpf"}
+{"text": "987.654.321-01", "labels": [], "category": "cpf"}
+{"text": "000.000.000-01", "labels": [], "category": "cpf"}

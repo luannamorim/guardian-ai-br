@@ -1,0 +1,66 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "guardrails-br"
+version = "0.1.0"
+description = "Brazilian LLM guardrails: BR PII detection with LGPD mapping and PT-BR adversarial classification"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+dependencies = [
+    "presidio-analyzer>=2.2.355,<3",
+    "pydantic>=2.6",
+    "regex>=2024.4.16",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
+    "types-PyYAML",
+]
+
+[project.scripts]
+guardian-br-eval = "guardian_br.eval.runner:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/guardian_br"]
+include = ["src/guardian_br/data/*.yaml", "src/guardian_br/py.typed"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/",
+    "tests/",
+    "evals/",
+    "Makefile",
+    "README.md",
+    "LICENSE",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"
+
+[tool.ruff]
+src = ["src"]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "C4", "SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+packages = ["guardian_br"]
+mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = ["regex", "presidio_analyzer", "presidio_analyzer.*", "spacy", "spacy.*"]
+ignore_missing_imports = true

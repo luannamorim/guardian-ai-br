@@ -1,0 +1,30 @@
+# Best-effort engineering interpretation — not a legal opinion.
+# This mapping is a technical correspondence by an engineer between
+# Guardian-BR's guardrail rules and articles of Lei nº 13.709/2018 (LGPD).
+# It is NOT legal advice and has not been reviewed by ANPD. Community
+# legal review is welcome via GitHub issues. See SPEC §Resolved Decisions #5.
+schema_version: 1
+disclaimer: >
+  Best-effort engineering interpretation — not a legal opinion.
+  This mapping is a technical correspondence by an engineer between
+  Guardian-BR's guardrail rules and articles of Lei nº 13.709/2018 (LGPD).
+  It is NOT legal advice and has not been reviewed by ANPD.
+  Community legal review is welcome via GitHub issues.
+rules:
+  BR_CPF:
+    description: "Cadastro de Pessoas Físicas — Brazilian individual taxpayer ID."
+    sensitivity: "personal"
+    lgpd_articles:
+      - article: "Art. 5º, I"
+        clause: "dado pessoal"
+      - article: "Art. 6º"
+        clause: "princípio da minimização"
+    art7_purpose_bases:
+      - "I"
+      - "V"
+    retention_note: "Mask in transit; do not persist raw value in logs."
+    notes: >
+      CPF detection requires mod-11 checksum validation. Mathematically
+      valid synthetic CPFs (e.g., 111.111.111-11) are reported as PII —
+      masking is content-blind by design (SPEC Failure Mode #2).
+      Do NOT add a rejection rule for synthetic sequences.
