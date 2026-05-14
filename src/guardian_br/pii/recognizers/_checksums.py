@@ -3,6 +3,10 @@ _CNPJ_W2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
 _PIS_WEIGHTS = [3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
 _CNH_W1 = [9, 8, 7, 6, 5, 4, 3, 2, 1]
 _CNH_W2 = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+_TITULO_W1 = [2, 3, 4, 5, 6, 7, 8, 9]
+_TITULO_W2 = [7, 8, 9]
+_TITULO_VALID_STATES: frozenset[str] = frozenset(f"{i:02d}" for i in range(1, 29))
+_TITULO_DV_ZERO_CLAMP_STATES: frozenset[str] = frozenset({"01", "02"})
 
 
 def _digits_only(s: str) -> str:
@@ -115,3 +119,41 @@ def validate_cnh(digits: str) -> bool:
     if dv2 >= 10:
         dv2 = 0
     return int(d[10]) == dv2
+
+
+def validate_titulo_eleitor(digits: str) -> bool:
+    """Return True if *digits* is a TSE-valid título de eleitor.
+
+    12-digit voter ID where digits 9-10 are the issuing-state code (01-28)
+    and digits 11-12 are the check digits. Algorithm differs from
+    CPF/CNPJ/PIS/CNH: the state code itself is part of the validity gate,
+    AND the two check digits cannot be zero for SP (01) or MG (02) —
+    when the computed value would be 0 in those states, it clamps to 1.
+
+    Per SPEC Failure Mode #2: mathematically valid synthetic títulos pass
+    intentionally — masking is content-blind. Do NOT add rejection rules
+    for synthetic sequences.
+    """
+    d = _digits_only(digits)
+    if len(d) != 12:
+        return False
+    state = d[8:10]
+    if state not in _TITULO_VALID_STATES:
+        return False
+
+    s1 = sum(int(d[i]) * _TITULO_W1[i] for i in range(8))
+    dv1 = s1 % 11
+    if dv1 == 10:
+        dv1 = 0
+    if dv1 == 0 and state in _TITULO_DV_ZERO_CLAMP_STATES:
+        dv1 = 1
+    if int(d[10]) != dv1:
+        return False
+
+    s2 = sum(int(d[8 + i]) * _TITULO_W2[i] for i in range(3))
+    dv2 = s2 % 11
+    if dv2 == 10:
+        dv2 = 0
+    if dv2 == 0 and state in _TITULO_DV_ZERO_CLAMP_STATES:
+        dv2 = 1
+    return int(d[11]) == dv2

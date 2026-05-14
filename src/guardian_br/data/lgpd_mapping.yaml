@@ -93,3 +93,24 @@ rules:
       sequences (e.g. 11111111111) are intentionally reported as PII per
       SPEC Failure Mode #2. Do NOT add a rejection rule for synthetic
       sequences.
+  BR_TITULO_ELEITOR:
+    description: "Título de eleitor — Brazilian voter registration ID issued by TSE."
+    sensitivity: "personal"
+    lgpd_articles:
+      - article: "Art. 5º, I"
+        clause: "dado pessoal — informação relacionada a pessoa natural identificada ou identificável"
+      - article: "Art. 6º"
+        clause: "princípio da minimização — uso restrito ao necessário"
+    art7_purpose_bases:
+      - "I"
+      - "V"
+    retention_note: "Mask in transit; do not persist raw value in logs."
+    notes: >
+      Título de eleitor detection uses a 12-digit pattern with optional 4-4-4
+      separators (space or dot), gated by the TSE checksum. Validation includes
+      a state-code lookup (digits 9-10 must be 01-28) and the SP/MG "DV cannot
+      be zero" clamp (for states 01 and 02, a computed DV of 0 is forced to 1).
+      Distinct length from CPF/PIS/CNH (11) and CNPJ (14), so no emit-both
+      overlap with existing BR recognizers. Mathematically valid synthetic
+      títulos are intentionally reported as PII per SPEC Failure Mode #2.
+      Do NOT add a rejection rule for synthetic sequences.

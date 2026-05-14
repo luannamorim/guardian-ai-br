@@ -147,6 +147,38 @@ def invalid_cnhs() -> list[str]:
 
 
 @pytest.fixture
+def valid_titulos_eleitor() -> list[str]:
+    return [
+        "123456780191",  # state=01 SP, clean (dv1=9, dv2=1)
+        "111111110116",  # state=01 SP, SP/MG clamp applied (raw dv1=0 → 1)
+        "123456780299",  # state=02 MG, clean (dv1=9, dv2=9)
+        "111111110213",  # state=02 MG, SP/MG clamp applied (raw dv1=0 → 1)
+        "000000230302",  # state=03 RJ, dv1=10 → 0
+        "123456780493",  # state=04 RS, clean
+        "987654320523",  # state=05 BA, clean
+        "112233440795",  # state=07 CE, clean
+        "556677881090",  # state=10 GO, clean (dv2=0, non-clamp state)
+        "123456002020",  # state=20 DF, clean
+    ]
+
+
+@pytest.fixture
+def invalid_titulos_eleitor() -> list[str]:
+    return [
+        "123456780192",  # SP wrong DV2 (last digit +1)
+        "111111110117",  # SP clamp wrong DV2
+        "123456780290",  # MG wrong DV2
+        "000000230303",  # RJ wrong DV2
+        "111111110106",  # SP, DV1=0 (not clamped to 1) — SP/MG clamp regression pin
+        "111111110203",  # MG, DV1=0 (not clamped to 1) — SP/MG clamp regression pin
+        "123456789901",  # invalid state code 99
+        "123456780001",  # invalid state code 00
+        "1234567801",  # 10 digits — too short
+        "abcdefghijkl",  # non-digits
+    ]
+
+
+@pytest.fixture
 def tmp_corpus(tmp_path: Path) -> Path:
     rows = [
         {

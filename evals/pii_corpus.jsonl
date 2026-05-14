@@ -39,3 +39,13 @@
 {"text": "meu número 98765432108 está errado", "labels": [], "category": "cnh"}
 {"text": "código 1234567890 não é cnh", "labels": [], "category": "cnh"}
 {"text": "id abc123456789012 não casa", "labels": [], "category": "cnh"}
+{"text": "123456780191", "labels": [{"type": "BR_TITULO_ELEITOR", "start": 0, "end": 12}], "category": "titulo"}
+{"text": "111111110116", "labels": [{"type": "BR_TITULO_ELEITOR", "start": 0, "end": 12}], "category": "titulo"}
+{"text": "1234 5678 0191", "labels": [{"type": "BR_TITULO_ELEITOR", "start": 0, "end": 14}], "category": "titulo"}
+{"text": "meu título de eleitor é 123456780191 do tse", "labels": [{"type": "BR_TITULO_ELEITOR", "start": 24, "end": 36}], "category": "titulo"}
+{"text": "zona 042 seção 0123, título 123456780299", "labels": [{"type": "BR_TITULO_ELEITOR", "start": 28, "end": 40}], "category": "titulo"}
+{"text": "insira o título 123456780493 para consulta", "labels": [{"type": "BR_TITULO_ELEITOR", "start": 16, "end": 28}], "category": "titulo"}
+{"text": "número do eleitor: 000000230302", "labels": [{"type": "BR_TITULO_ELEITOR", "start": 19, "end": 31}], "category": "titulo"}
+{"text": "meu número 123456780192 está errado", "labels": [], "category": "titulo"}
+{"text": "id 123456789901 não é título", "labels": [], "category": "titulo"}
+{"text": "código 12345678019 não casa", "labels": [], "category": "titulo"}
