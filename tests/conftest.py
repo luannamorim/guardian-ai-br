@@ -113,6 +113,40 @@ def invalid_pis() -> list[str]:
 
 
 @pytest.fixture
+def valid_cnhs() -> list[str]:
+    return [
+        "98765432109",  # dsc=2 branch (DV1 saturates)
+        "23456789029",  # dsc=0 branch
+        "34567890157",  # dsc=0 branch
+        "45678901294",
+        "56789012330",
+        "67890123496",
+        "78901234550",
+        "13579246882",
+        # Mathematically valid synthetic sequences — must be detected as PII
+        # (SPEC Failure Mode #2: masking is content-blind by design).
+        "11111111111",
+        "55555555555",
+    ]
+
+
+@pytest.fixture
+def invalid_cnhs() -> list[str]:
+    return [
+        "98765432108",  # last digit off by -1
+        "23456789020",  # last digit wrong
+        "98765432100",  # wrong DV2
+        "45678901295",  # wrong last digit
+        "00000000001",  # breaks all-zero synthetic checksum
+        "1234567890",  # 10 digits — too short
+        "123456789000",  # 12 digits — too long
+        "abcdefghijk",  # non-digits
+        "98765432107",  # wrong checksum
+        "34567890158",  # wrong checksum
+    ]
+
+
+@pytest.fixture
 def tmp_corpus(tmp_path: Path) -> Path:
     rows = [
         {

@@ -4,7 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from guardian_br import Guardian, ScanResult
-from guardian_br.core.entities import BR_CNPJ, BR_CPF, BR_PIS
+from guardian_br.core.entities import BR_CNH, BR_CNPJ, BR_CPF, BR_PIS
 
 
 def test_scan_returns_scan_result() -> None:
@@ -77,13 +77,20 @@ def test_scan_detects_cpf_cnpj_pis_together() -> None:
     assert result.redacted_text == "CPF <BR_CPF> CNPJ <BR_CNPJ> PIS <BR_PIS>"
 
 
-def test_unformatted_collision_emits_both_when_both_checksums_pass() -> None:
-    """00000000000 satisfies both the CPF and PIS checksums.
+def test_unformatted_collision_emits_all_when_multiple_checksums_pass() -> None:
+    """00000000000 satisfies the CPF, PIS, and CNH checksums simultaneously.
 
-    Both recognizers must fire independently — emit-both policy, never
+    All three recognizers must fire independently — emit-all policy, never
     deduplicate. Downstream consumers must not assume detection types are
-    mutually exclusive. See lgpd_mapping.yaml BR_PIS notes.
+    mutually exclusive. See lgpd_mapping.yaml BR_PIS and BR_CNH notes.
     """
     result = Guardian().scan("00000000000")
     types = sorted(d.entity_type for d in result.detections)
-    assert types == [BR_CPF, BR_PIS]
+    assert types == [BR_CNH, BR_CPF, BR_PIS]
+
+
+def test_scan_detects_cpf_cnpj_pis_cnh_together() -> None:
+    text = "CPF 123.456.789-09 CNPJ 11.222.333/0001-81 PIS 123.45678.90-0 CNH 98765432109"
+    result = Guardian().scan(text)
+    types = {d.entity_type for d in result.detections}
+    assert types == {BR_CPF, BR_CNPJ, BR_PIS, BR_CNH}

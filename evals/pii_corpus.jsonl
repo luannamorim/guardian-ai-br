@@ -29,3 +29,13 @@
 {"text": "123.45678.90-1", "labels": [], "category": "pis"}
 {"text": "987.65432.10-4", "labels": [], "category": "pis"}
 {"text": "000.00000.00-1", "labels": [], "category": "pis"}
+{"text": "98765432109", "labels": [{"type": "BR_CNH", "start": 0, "end": 11}], "category": "cnh"}
+{"text": "23456789029", "labels": [{"type": "BR_CNH", "start": 0, "end": 11}], "category": "cnh"}
+{"text": "minha cnh é 98765432109 do detran", "labels": [{"type": "BR_CNH", "start": 12, "end": 23}], "category": "cnh"}
+{"text": "renovei a habilitação 23456789029 ontem", "labels": [{"type": "BR_CNH", "start": 22, "end": 33}], "category": "cnh"}
+{"text": "carteira de motorista 34567890157 do estado", "labels": [{"type": "BR_CNH", "start": 22, "end": 33}], "category": "cnh"}
+{"text": "número cnh 98765432109 ativo", "labels": [{"type": "BR_CNH", "start": 11, "end": 22}], "category": "cnh"}
+{"text": "45678901294", "labels": [{"type": "BR_CNH", "start": 0, "end": 11}], "category": "cnh"}
+{"text": "meu número 98765432108 está errado", "labels": [], "category": "cnh"}
+{"text": "código 1234567890 não é cnh", "labels": [], "category": "cnh"}
+{"text": "id abc123456789012 não casa", "labels": [], "category": "cnh"}

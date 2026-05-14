@@ -2,6 +2,7 @@ import spacy
 from presidio_analyzer import AnalyzerEngine, RecognizerRegistry
 from presidio_analyzer.nlp_engine import SpacyNlpEngine
 
+from guardian_br.pii.recognizers.cnh import CnhRecognizer
 from guardian_br.pii.recognizers.cnpj import CnpjRecognizer
 from guardian_br.pii.recognizers.cpf import CpfRecognizer
 from guardian_br.pii.recognizers.pis import PisRecognizer
@@ -30,6 +31,7 @@ def build_default_registry() -> RecognizerRegistry:
     registry.add_recognizer(CpfRecognizer())
     registry.add_recognizer(CnpjRecognizer())
     registry.add_recognizer(PisRecognizer())
+    registry.add_recognizer(CnhRecognizer())
     return registry
 
 
