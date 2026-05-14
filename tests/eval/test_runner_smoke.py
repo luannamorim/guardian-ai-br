@@ -1,4 +1,5 @@
 """Smoke test for the benchmark runner."""
+
 from pathlib import Path
 
 from guardian_br.eval.runner import main
@@ -10,10 +11,14 @@ def test_runner_produces_report(tmp_corpus: Path, tmp_path: Path) -> None:
 
     rc = main(
         [
-            "--corpus", str(tmp_corpus),
-            "--category", "cpf",
-            "--out", str(out),
-            "--history-dir", str(history),
+            "--corpus",
+            str(tmp_corpus),
+            "--category",
+            "cpf",
+            "--out",
+            str(out),
+            "--history-dir",
+            str(history),
         ]
     )
     assert rc == 0
@@ -31,10 +36,14 @@ def test_runner_archives_snapshot(tmp_corpus: Path, tmp_path: Path) -> None:
 
     main(
         [
-            "--corpus", str(tmp_corpus),
-            "--category", "cpf",
-            "--out", str(out),
-            "--history-dir", str(history),
+            "--corpus",
+            str(tmp_corpus),
+            "--category",
+            "cpf",
+            "--out",
+            str(out),
+            "--history-dir",
+            str(history),
         ]
     )
 
@@ -48,10 +57,14 @@ def test_runner_reports_recall(tmp_corpus: Path, tmp_path: Path) -> None:
 
     main(
         [
-            "--corpus", str(tmp_corpus),
-            "--category", "cpf",
-            "--out", str(out),
-            "--history-dir", str(history),
+            "--corpus",
+            str(tmp_corpus),
+            "--category",
+            "cpf",
+            "--out",
+            str(out),
+            "--history-dir",
+            str(history),
         ]
     )
 

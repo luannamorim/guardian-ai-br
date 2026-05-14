@@ -28,3 +28,25 @@ rules:
       valid synthetic CPFs (e.g., 111.111.111-11) are reported as PII —
       masking is content-blind by design (SPEC Failure Mode #2).
       Do NOT add a rejection rule for synthetic sequences.
+  BR_CNPJ:
+    description: "Cadastro Nacional da Pessoa Jurídica — Brazilian company taxpayer ID."
+    sensitivity: "personal"
+    lgpd_articles:
+      - article: "Art. 5º, I"
+        clause: "dado pessoal (pessoa jurídica tratada como pessoal pelo controlador quando reidentifica titular)"
+      - article: "Art. 6º"
+        clause: "princípio da minimização"
+    art7_purpose_bases:
+      - "I"
+      - "V"
+    retention_note: "Mask in transit; do not persist raw value in logs."
+    notes: >
+      CNPJ detection requires mod-11 checksum validation with two distinct
+      weight sequences (positions 12 and 13). Mathematically valid synthetic
+      CNPJs (e.g., 00.000.000/0000-00) are reported as PII — masking is
+      content-blind by design (SPEC Failure Mode #2). Under LGPD, CNPJ is
+      not always "personal data" per se (the holder is a legal entity), but
+      Guardian-BR masks it because in customer-service logs it routinely
+      co-occurs with — and helps reidentify — the natural persons operating
+      those entities (Art. 5º I via association). Do NOT add a rejection rule
+      for synthetic sequences.

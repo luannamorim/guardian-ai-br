@@ -5,6 +5,7 @@ Usage::
     python -m guardian_br.eval --corpus evals/pii_corpus.jsonl --category cpf
     make eval-quick CATEGORY=cpf
 """
+
 from __future__ import annotations
 
 import argparse
@@ -109,9 +110,7 @@ def _format_report(
         tp, fn, fp = s["tp"], s["fn"], s["fp"]
         recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
         precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-        lines.append(
-            f"| {etype} | {tp} | {fn} | {fp} | {recall:.1%} | {precision:.1%} |"
-        )
+        lines.append(f"| {etype} | {tp} | {fn} | {fp} | {recall:.1%} | {precision:.1%} |")
     lines.append("")
 
     lines.append("## Adversarial Results")

@@ -1,4 +1,5 @@
 """Tests for the CpfRecognizer Presidio integration."""
+
 from presidio_analyzer import AnalyzerEngine
 
 from guardian_br.core.entities import BR_CPF
@@ -17,9 +18,7 @@ def test_valid_cpf_detected(analyzer: AnalyzerEngine, valid_cpfs: list[str]) -> 
         assert results[0].entity_type == BR_CPF
 
 
-def test_invalid_cpf_not_detected(
-    analyzer: AnalyzerEngine, invalid_cpfs: list[str]
-) -> None:
+def test_invalid_cpf_not_detected(analyzer: AnalyzerEngine, invalid_cpfs: list[str]) -> None:
     for cpf in invalid_cpfs:
         results = analyzer.analyze(text=cpf, language="pt", entities=[BR_CPF])
         assert len(results) == 0, (

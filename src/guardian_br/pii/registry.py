@@ -2,6 +2,7 @@ import spacy
 from presidio_analyzer import AnalyzerEngine, RecognizerRegistry
 from presidio_analyzer.nlp_engine import SpacyNlpEngine
 
+from guardian_br.pii.recognizers.cnpj import CnpjRecognizer
 from guardian_br.pii.recognizers.cpf import CpfRecognizer
 
 
@@ -26,14 +27,13 @@ def build_default_registry() -> RecognizerRegistry:
     """Return a RecognizerRegistry containing all active BR recognizers."""
     registry = RecognizerRegistry(supported_languages=["pt"])
     registry.add_recognizer(CpfRecognizer())
+    registry.add_recognizer(CnpjRecognizer())
     return registry
 
 
 def build_analyzer_engine() -> AnalyzerEngine:
     """Build a Presidio AnalyzerEngine configured for PT-BR."""
-    nlp_engine = _BlankSpacyNlpEngine(
-        models=[{"lang_code": "pt", "model_name": "blank_pt"}]
-    )
+    nlp_engine = _BlankSpacyNlpEngine(models=[{"lang_code": "pt", "model_name": "blank_pt"}])
     nlp_engine.load()
     registry = build_default_registry()
     return AnalyzerEngine(

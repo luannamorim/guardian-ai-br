@@ -4,6 +4,7 @@ All tests here are pure — no Presidio, no I/O. The checksum function is
 the single gatekeeper that silences regex-matched CPF candidates that are
 not genuine CPF numbers (CLAUDE.md §Conventions, SPEC FR #2).
 """
+
 import pytest
 
 from guardian_br.pii.recognizers._checksums import validate_cpf
@@ -60,11 +61,11 @@ def test_invalid_cpf_rejected(cpf: str) -> None:
 @pytest.mark.parametrize(
     "bad_input",
     [
-        "12345678",       # too short
-        "123456789012",   # too long
-        "",               # empty
-        "abc.def.ghi-jk", # non-digits
-        "123.456.789",    # missing check digits
+        "12345678",  # too short
+        "123456789012",  # too long
+        "",  # empty
+        "abc.def.ghi-jk",  # non-digits
+        "123.456.789",  # missing check digits
     ],
 )
 def test_wrong_length_or_non_digit_rejected(bad_input: str) -> None:

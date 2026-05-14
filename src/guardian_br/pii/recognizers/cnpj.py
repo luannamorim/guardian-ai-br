@@ -4,42 +4,43 @@ import regex
 from presidio_analyzer import Pattern, PatternRecognizer, RecognizerResult
 from presidio_analyzer.entity_recognizer import EntityRecognizer
 
-from guardian_br.core.entities import BR_CPF
-from guardian_br.pii.recognizers._checksums import validate_cpf
+from guardian_br.core.entities import BR_CNPJ
+from guardian_br.pii.recognizers._checksums import validate_cnpj
 from guardian_br.pii.recognizers._regex_utils import REGEX_TIMEOUT, compile_pattern
 
-_CPF_COMPILED = compile_pattern(r"(?<!\d)\d{3}\.?\d{3}\.?\d{3}-?\d{2}(?!\d)")
+_CNPJ_COMPILED = compile_pattern(r"(?<!\d)\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}(?!\d)")
 
 
-class CpfRecognizer(PatternRecognizer):
-    """Presidio recognizer for Brazilian CPF (Cadastro de Pessoas Físicas).
+class CnpjRecognizer(PatternRecognizer):
+    """Presidio recognizer for Brazilian CNPJ (Cadastro Nacional da Pessoa Jurídica).
 
     Uses a single regex pattern (base score 0.4) gated by mod-11 checksum
-    validation. Regex-only matches that fail the checksum are silenced
-    (score → EntityRecognizer.MIN_SCORE = 0).
+    validation with two weight sequences. Regex-only matches that fail the
+    checksum are silenced (score → EntityRecognizer.MIN_SCORE = 0).
 
-    See SPEC Failure Mode #2: mathematically valid synthetic CPFs such as
-    111.111.111-11 are intentionally reported as PII — masking is content-blind.
+    See SPEC Failure Mode #2: mathematically valid synthetic CNPJs such as
+    00.000.000/0000-00 are intentionally reported as PII — masking is
+    content-blind.
 
     The regex is compiled via `_regex_utils.compile_pattern` (never stdlib `re`)
     and backtrack timeout is applied at match time in `_analyze_patterns_in_text`.
     """
 
-    PATTERNS = [Pattern("CPF_PATTERN", _CPF_COMPILED.pattern, 0.4)]
-    CONTEXT = ["cpf", "documento", "cadastro"]
+    PATTERNS = [Pattern("CNPJ_PATTERN", _CNPJ_COMPILED.pattern, 0.4)]
+    CONTEXT = ["cnpj", "empresa", "cadastro"]
 
     def __init__(self, supported_language: str = "pt") -> None:
         super().__init__(
-            supported_entity=BR_CPF,
+            supported_entity=BR_CNPJ,
             patterns=self.PATTERNS,
             context=self.CONTEXT,
             supported_language=supported_language,
         )
         for p in self.patterns:  # type: ignore[has-type]  # inject regex-lib version for timeout support
-            p.compiled_pattern = _CPF_COMPILED
+            p.compiled_pattern = _CNPJ_COMPILED
 
     def validate_result(self, pattern_text: str) -> bool:
-        return validate_cpf(pattern_text)
+        return validate_cnpj(pattern_text)
 
     def _analyze_patterns_in_text(
         self, text: str, flags: int | None = None

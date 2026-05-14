@@ -47,6 +47,40 @@ def invalid_cpfs() -> list[str]:
 
 
 @pytest.fixture
+def valid_cnpjs() -> list[str]:
+    return [
+        "12.345.678/0001-95",
+        "11.222.333/0001-81",
+        "45.678.901/0001-75",
+        "98.765.432/0001-98",
+        "67.890.123/0001-16",
+        "34.567.890/0001-30",
+        "56.789.012/0001-00",
+        "12345678000195",  # unformatted
+        # Mathematically valid synthetic sequences — must be detected as PII
+        # (SPEC Failure Mode #2: masking is content-blind by design).
+        "00.000.000/0000-00",
+        "11.111.111/1111-80",
+    ]
+
+
+@pytest.fixture
+def invalid_cnpjs() -> list[str]:
+    return [
+        "12.345.678/0001-96",  # last digit off by 1
+        "12.345.678/0001-94",  # last digit off by -1
+        "11.222.333/0001-82",  # wrong check digit
+        "00.000.000/0000-01",  # non-zero digit breaks synthetic all-zero checksum
+        "11.111.111/1111-81",  # wrong last digit
+        "98.765.432/0001-99",  # wrong checksum
+        "1234567800019",  # 13 digits — too short
+        "123456780001958",  # 15 digits — too long
+        "ab.cde.fgh/0001-95",  # non-digit prefix
+        "45.678.901/0001-76",  # wrong checksum
+    ]
+
+
+@pytest.fixture
 def tmp_corpus(tmp_path: Path) -> Path:
     rows = [
         {
@@ -66,7 +100,5 @@ def tmp_corpus(tmp_path: Path) -> Path:
         },
     ]
     corpus_file = tmp_path / "corpus.jsonl"
-    corpus_file.write_text(
-        "\n".join(json.dumps(r) for r in rows), encoding="utf-8"
-    )
+    corpus_file.write_text("\n".join(json.dumps(r) for r in rows), encoding="utf-8")
     return corpus_file

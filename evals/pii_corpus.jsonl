@@ -9,3 +9,13 @@
 {"text": "123.456.789-00", "labels": [], "category": "cpf"}
 {"text": "987.654.321-01", "labels": [], "category": "cpf"}
 {"text": "000.000.000-01", "labels": [], "category": "cpf"}
+{"text": "12.345.678/0001-95", "labels": [{"type": "BR_CNPJ", "start": 0, "end": 18}], "category": "cnpj"}
+{"text": "11.222.333/0001-81", "labels": [{"type": "BR_CNPJ", "start": 0, "end": 18}], "category": "cnpj"}
+{"text": "Meu CNPJ é 45.678.901/0001-75, confirme.", "labels": [{"type": "BR_CNPJ", "start": 11, "end": 29}], "category": "cnpj"}
+{"text": "empresa com cnpj 12345678000195 solicitou serviço", "labels": [{"type": "BR_CNPJ", "start": 17, "end": 31}], "category": "cnpj"}
+{"text": "98.765.432/0001-98", "labels": [{"type": "BR_CNPJ", "start": 0, "end": 18}], "category": "cnpj"}
+{"text": "nosso cnpj é 67.890.123/0001-16 para nota fiscal", "labels": [{"type": "BR_CNPJ", "start": 13, "end": 31}], "category": "cnpj"}
+{"text": "nota para cnpj 34.567.890/0001-30 do fornecedor", "labels": [{"type": "BR_CNPJ", "start": 15, "end": 33}], "category": "cnpj"}
+{"text": "12.345.678/0001-96", "labels": [], "category": "cnpj"}
+{"text": "11.222.333/0001-82", "labels": [], "category": "cnpj"}
+{"text": "00.000.000/0000-01", "labels": [], "category": "cnpj"}

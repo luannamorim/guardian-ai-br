@@ -1,9 +1,10 @@
 """Integration tests for Guardian.scan()."""
+
 import pytest
 from pydantic import ValidationError
 
 from guardian_br import Guardian, ScanResult
-from guardian_br.core.entities import BR_CPF
+from guardian_br.core.entities import BR_CNPJ, BR_CPF
 
 
 def test_scan_returns_scan_result() -> None:
@@ -56,3 +57,12 @@ def test_lgpd_article_populated() -> None:
     result = Guardian().scan("123.456.789-09")
     assert len(result.detections) == 1
     assert result.detections[0].lgpd_article == "Art. 5º, I"
+
+
+def test_scan_detects_cpf_and_cnpj_together() -> None:
+    text = "CPF 123.456.789-09 e CNPJ 11.222.333/0001-81"
+    result = Guardian().scan(text)
+    assert len(result.detections) == 2
+    types = {d.entity_type for d in result.detections}
+    assert types == {BR_CPF, BR_CNPJ}
+    assert result.redacted_text == "CPF <BR_CPF> e CNPJ <BR_CNPJ>"
