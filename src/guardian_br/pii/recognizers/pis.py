@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-import regex
-from presidio_analyzer import Pattern, PatternRecognizer, RecognizerResult
-from presidio_analyzer.entity_recognizer import EntityRecognizer
+from presidio_analyzer import Pattern
 
 from guardian_br.core.entities import BR_PIS
+from guardian_br.pii.recognizers._base import _BASE_SCORE, ChecksumValidatedRecognizer
 from guardian_br.pii.recognizers._checksums import validate_pis
-from guardian_br.pii.recognizers._regex_utils import REGEX_TIMEOUT, compile_pattern
+from guardian_br.pii.recognizers._regex_utils import compile_pattern
 
 _PIS_COMPILED = compile_pattern(r"(?<!\d)\d{3}\.?\d{5}\.?\d{2}-?\d{1}(?!\d)")
 
 
-class PisRecognizer(PatternRecognizer):
+class PisRecognizer(ChecksumValidatedRecognizer):
     """Presidio recognizer for Brazilian PIS/PASEP/NIS.
 
     Uses a single regex pattern (base score 0.4) gated by mod-11 checksum
@@ -24,58 +23,12 @@ class PisRecognizer(PatternRecognizer):
     content-blind. Note: 00000000000 also satisfies the CPF checksum; when
     both recognizers fire on the same span, both detections are emitted
     (emit-both policy, never deduplicated).
-
-    The regex is compiled via `_regex_utils.compile_pattern` (never stdlib `re`)
-    and backtrack timeout is applied at match time in `_analyze_patterns_in_text`.
     """
 
-    PATTERNS = [Pattern("PIS_PATTERN", _PIS_COMPILED.pattern, 0.4)]
+    SUPPORTED_ENTITY = BR_PIS
+    PATTERNS = [Pattern("PIS_PATTERN", _PIS_COMPILED.pattern, _BASE_SCORE)]
     CONTEXT = ["pis", "pasep", "nis"]
-
-    def __init__(self, supported_language: str = "pt") -> None:
-        super().__init__(
-            supported_entity=BR_PIS,
-            patterns=self.PATTERNS,
-            context=self.CONTEXT,
-            supported_language=supported_language,
-        )
-        for p in self.patterns:  # type: ignore[has-type]  # inject regex-lib version for timeout support
-            p.compiled_pattern = _PIS_COMPILED
+    COMPILED_PATTERN = _PIS_COMPILED
 
     def validate_result(self, pattern_text: str) -> bool:
         return validate_pis(pattern_text)
-
-    def _analyze_patterns_in_text(
-        self, text: str, flags: int | None = None
-    ) -> list[RecognizerResult]:
-        """Override Presidio's default to apply backtrack timeout at match time."""
-        results: list[RecognizerResult] = []
-        for pattern in self.patterns:  # type: ignore[has-type]
-            try:
-                matches = (
-                    pattern.compiled_pattern.finditer(text, flags, timeout=REGEX_TIMEOUT)
-                    if flags
-                    else pattern.compiled_pattern.finditer(text, timeout=REGEX_TIMEOUT)
-                )
-            except regex.error:
-                # Backtrack timeout or malformed pattern — skip silently.
-                continue
-
-            for match in matches:
-                start, end = match.span()
-                current_match = text[start:end]
-                if not current_match:
-                    continue
-
-                validation_result = self.validate_result(current_match)
-                score = pattern.score if validation_result else EntityRecognizer.MIN_SCORE
-
-                results.append(
-                    RecognizerResult(
-                        entity_type=self.supported_entities[0],
-                        start=start,
-                        end=end,
-                        score=score,
-                    )
-                )
-        return results
