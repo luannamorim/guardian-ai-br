@@ -82,15 +82,6 @@ async def _make_kms_check(
     return _check
 
 
-async def _make_audit_check(
-    store: SQLiteRedactStore,
-) -> Callable[[], Awaitable[_CheckResult]]:
-    async def _check() -> _CheckResult:
-        return "ok" if store.ping() else "fail"
-
-    return _check
-
-
 async def _make_llama_guard_check(
     classifier: AdversarialClassifier,
     enabled: bool,
@@ -133,6 +124,9 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
         import warnings
 
         from guardian_br.api import metrics as m
+        from guardian_br.api.telemetry import setup_telemetry, shutdown_telemetry
+
+        setup_telemetry(resolved_settings)
 
         store = SQLiteRedactStore()
         kms = EnvKMSProvider()
@@ -193,7 +187,7 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
             "llama_guard",
             await _make_llama_guard_check(classifier, resolved_settings.adversarial_enabled),
         )
-        health.register("audit_log", await _make_audit_check(store))
+        health.register("audit_log", await _make_store_check(store))
 
         app.state.guardian = guardian
         app.state.settings = resolved_settings
@@ -204,12 +198,21 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
 
         yield
 
+        shutdown_telemetry()
+
     app = FastAPI(
         title="Guardian-BR",
         description="Brazilian LLM guardrails layer — BR PII detection with LGPD mapping and PT-BR adversarial classification.",
         version="0.1.0",
         lifespan=lifespan,
     )
+
+    try:
+        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+        FastAPIInstrumentor().instrument_app(app, excluded_urls="v1/healthz,v1/metrics")
+    except ImportError:
+        pass
 
     app.state.limiter = limiter
     app.add_middleware(SlowAPIMiddleware)

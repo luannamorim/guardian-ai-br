@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     adversarial_warmup_on_startup: bool = True
     adversarial_fail_open: bool = True
 
+    otlp_endpoint: str | None = None
+    otlp_insecure: bool = True
+    otel_service_name: str = "guardian-br"
+
     audit_salt: SecretStr | None = None
     audit_salt_key_id: str = "default"
     audit_hmac_chain: bool = False

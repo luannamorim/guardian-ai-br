@@ -1,10 +1,20 @@
 from __future__ import annotations
 
+import contextlib
+import json
 import time
 import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
+
+try:
+    from opentelemetry import trace as _otel_trace
+
+    _OTEL_AVAILABLE = True
+except ImportError:
+    _otel_trace = None  # type: ignore[assignment]
+    _OTEL_AVAILABLE = False
 
 from presidio_analyzer import AnalyzerEngine
 
@@ -23,6 +33,7 @@ if TYPE_CHECKING:
 
 _DEFAULT_HANDLE_TTL_S = 86_400  # 24 hours
 _ENTITY_LIST: list[str] = list(BR_ENTITIES)
+_TRACER = _otel_trace.get_tracer("guardian_br") if _OTEL_AVAILABLE else None
 
 
 class Guardian:
@@ -126,81 +137,132 @@ class Guardian:
             and stores the encrypted original (AES-256-GCM) so it can be
             recovered via unmask(handle).
         """
-        t0 = time.perf_counter()
+        t_total = time.perf_counter()
         effective_mode = mode if mode is not None else self._mode_default
         analyzer = self._get_analyzer()
         mapping = load_lgpd_mapping()
 
-        results = analyzer.analyze(
-            text=text,
-            language="pt",
-            entities=_ENTITY_LIST,
-        )
-
-        detections: list[Detection] = []
-        for r in results:
-            rule = mapping.rules.get(r.entity_type)
-            lgpd_article = rule.lgpd_articles[0].article if rule else None
-            detections.append(
-                Detection(
-                    entity_type=r.entity_type,
-                    start=r.start,
-                    end=r.end,
-                    score=r.score,
-                    lgpd_article=lgpd_article,
+        with (
+            _TRACER.start_as_current_span("guardian.scan") if _TRACER else contextlib.nullcontext()
+        ) as span:
+            t_pii = time.perf_counter()
+            with (
+                _TRACER.start_as_current_span("guardian.pii")
+                if _TRACER
+                else contextlib.nullcontext()
+            ):
+                results = analyzer.analyze(
+                    text=text,
+                    language="pt",
+                    entities=_ENTITY_LIST,
                 )
+                detections: list[Detection] = []
+                for r in results:
+                    rule = mapping.rules.get(r.entity_type)
+                    lgpd_article = rule.lgpd_articles[0].article if rule else None
+                    detections.append(
+                        Detection(
+                            entity_type=r.entity_type,
+                            start=r.start,
+                            end=r.end,
+                            score=r.score,
+                            lgpd_article=lgpd_article,
+                        )
+                    )
+            latency_ms_pii = (time.perf_counter() - t_pii) * 1000
+
+            adv: AdversarialResult | None = None
+            latency_ms_adv: float | None = None
+            if not skip_adversarial:
+                t_adv = time.perf_counter()
+                with (
+                    _TRACER.start_as_current_span("guardian.adversarial")
+                    if _TRACER
+                    else contextlib.nullcontext()
+                ) as adv_span:
+                    adv = self._get_classifier().classify(text)
+                    if adv_span:
+                        adv_span.set_attribute("guardian.adversarial_source", adv.source)
+                latency_ms_adv = (time.perf_counter() - t_adv) * 1000
+
+            latency_ms = (time.perf_counter() - t_total) * 1000
+            is_blocked = effective_mode is Mode.BLOCK and (
+                bool(detections) or (adv is not None and adv.unsafe)
+            )
+            input_hash = self._get_auditor().hash_input(text)
+
+            if span:
+                span.set_attribute("guardian.mode", effective_mode.value)
+                span.set_attribute("guardian.latency_ms_pii", latency_ms_pii)
+                if latency_ms_adv is not None:
+                    span.set_attribute("guardian.latency_ms_adversarial", latency_ms_adv)
+                span.set_attribute("guardian.latency_ms_total", latency_ms)
+                span.set_attribute("guardian.detections_count", len(detections))
+                if detections:
+                    span.set_attribute(
+                        "guardian.detections",
+                        json.dumps(
+                            [
+                                {
+                                    "entity_type": d.entity_type,
+                                    "lgpd_article": d.lgpd_article or "unknown",
+                                }
+                                for d in detections
+                            ],
+                            separators=(",", ":"),
+                            sort_keys=True,
+                        ),
+                    )
+                if input_hash:
+                    span.set_attribute("guardian.input_hash", input_hash)
+                decision = "blocked" if is_blocked else "allowed"
+                span.set_attribute("guardian.decision", decision)
+                if is_blocked:
+                    span.set_status(_otel_trace.StatusCode.ERROR, "blocked")
+
+            self._get_auditor().record_scan(
+                text=text,
+                input_hash=input_hash,
+                principal_id=principal_id,
+                client_ip=client_ip,
+                request_fingerprint=request_fingerprint,
+                mode=effective_mode.value,
+                detections=detections,
+                adversarial=adv,
+                latency_ms=latency_ms,
+                blocked=is_blocked,
             )
 
-        adv: AdversarialResult | None = None
-        if not skip_adversarial:
-            adv = self._get_classifier().classify(text)
+            if effective_mode is Mode.BLOCK:
+                if is_blocked:
+                    raise BlockedError(detections, adversarial=adv)
+                return ScanResult(
+                    mode=effective_mode,
+                    blocked=False,
+                    text=text,
+                    detections=[],
+                    redacted_text=text,
+                    adversarial=adv,
+                )
 
-        latency_ms = (time.perf_counter() - t0) * 1000
-        is_blocked = effective_mode is Mode.BLOCK and (
-            bool(detections) or (adv is not None and adv.unsafe)
-        )
-        self._get_auditor().record_scan(
-            text=text,
-            principal_id=principal_id,
-            client_ip=client_ip,
-            request_fingerprint=request_fingerprint,
-            mode=effective_mode.value,
-            detections=detections,
-            adversarial=adv,
-            latency_ms=latency_ms,
-            blocked=is_blocked,
-        )
+            if effective_mode is Mode.REVERSIBLE_REDACT:
+                detections = self._store_and_tokenize(text, detections)
 
-        if effective_mode is Mode.BLOCK:
-            if is_blocked:
-                raise BlockedError(detections, adversarial=adv)
+                def placeholder_fn(d: Detection) -> str:
+                    return f"<RDX:{d.redact_token}>"
+            else:
+
+                def placeholder_fn(d: Detection) -> str:
+                    return f"<{d.entity_type}>"
+
+            redacted_text = _redact(text, detections, placeholder_fn)
             return ScanResult(
                 mode=effective_mode,
-                blocked=False,
                 text=text,
-                detections=[],
-                redacted_text=text,
+                detections=detections,
+                redacted_text=redacted_text,
                 adversarial=adv,
             )
-
-        if effective_mode is Mode.REVERSIBLE_REDACT:
-            detections = self._store_and_tokenize(text, detections)
-
-            def placeholder_fn(d: Detection) -> str:
-                return f"<RDX:{d.redact_token}>"
-        else:
-
-            def placeholder_fn(d: Detection) -> str:
-                return f"<{d.entity_type}>"
-
-        redacted_text = _redact(text, detections, placeholder_fn)
-        return ScanResult(
-            mode=effective_mode,
-            text=text,
-            detections=detections,
-            redacted_text=redacted_text,
-            adversarial=adv,
-        )
 
     def _store_and_tokenize(
         self,

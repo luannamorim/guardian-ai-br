@@ -100,6 +100,7 @@ class Auditor:
         self,
         *,
         text: str,
+        input_hash: str | None = None,
         principal_id: str | None,
         client_ip: str | None,
         request_fingerprint: str | None,
@@ -109,7 +110,10 @@ class Auditor:
         latency_ms: float,
         blocked: bool,
     ) -> None:
-        from guardian_br.core.audit_hash import salted_hash
+        if input_hash is None:
+            from guardian_br.core.audit_hash import salted_hash
+
+            input_hash = salted_hash(text, self._salt)
 
         row = AuditRow(
             id=uuid.uuid4().hex,
@@ -118,7 +122,7 @@ class Auditor:
             principal_id=principal_id or "library",
             client_ip=client_ip,
             request_fingerprint=request_fingerprint,
-            input_hash=salted_hash(text, self._salt),
+            input_hash=input_hash,
             salt_key_id=self._salt_key_id,
             mode=mode,  # type: ignore[arg-type]
             latency_ms=latency_ms,
@@ -170,6 +174,11 @@ class Auditor:
         )
         self.append(row)
 
+    def hash_input(self, text: str) -> str | None:
+        from guardian_br.core.audit_hash import salted_hash
+
+        return salted_hash(text, self._salt)
+
 
 class _DisabledAuditor:
     """No-op auditor for library use without an audit store."""
@@ -188,3 +197,6 @@ class _DisabledAuditor:
 
     def record_auth_failure(self, **kwargs: object) -> None:
         pass
+
+    def hash_input(self, text: str) -> str | None:
+        return None

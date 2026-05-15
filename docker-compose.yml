@@ -41,6 +41,8 @@ services:
       # GUARDIAN_BR_AUDIT_SALT: "base64-encoded-32-byte-salt  (required in prod; random per-process if absent)"
       # GUARDIAN_BR_AUDIT_HMAC_SECRET: "base64-encoded-32-byte-secret  (required when AUDIT_HMAC_CHAIN=true)"
       # GUARDIAN_BR_AUDIT_FALLBACK_PATH: "/var/lib/guardian/audit_fallback.jsonl"
+      # GUARDIAN_BR_OTLP_ENDPOINT: "http://otel-collector:4317"  # gRPC; enables OTel traces
+      # GUARDIAN_BR_OTEL_SERVICE_NAME: "guardian-br"
     restart: unless-stopped
 
   guardian-br-dashboard:
