@@ -2,7 +2,9 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-SCHEMA_VERSION: Literal["1"] = "1"
+from guardian_br.core.modes import Mode
+
+SCHEMA_VERSION: Literal["2"] = "2"
 
 
 class Detection(BaseModel):
@@ -13,12 +15,15 @@ class Detection(BaseModel):
     end: int
     score: float
     lgpd_article: str | None = None
+    redact_token: str | None = None
 
 
 class ScanResult(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    schema_version: Literal["1"] = SCHEMA_VERSION
+    schema_version: Literal["2"] = SCHEMA_VERSION
+    mode: Mode = Mode.REDACT
+    blocked: bool = False
     text: str
     detections: list[Detection]
     redacted_text: str
