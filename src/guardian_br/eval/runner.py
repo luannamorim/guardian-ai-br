@@ -15,7 +15,17 @@ import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
+
+
+def _detect_corpus_kind(rows: list[dict[str, Any]]) -> Literal["pii", "adversarial", "mixed"]:
+    has_pii = any("labels" in row for row in rows)
+    has_adv = any("adversarial" in row for row in rows)
+    if has_pii and has_adv:
+        return "mixed"
+    if has_adv:
+        return "adversarial"
+    return "pii"
 
 
 def _load_corpus(corpus_path: Path, category: str) -> list[dict[str, Any]]:
@@ -38,12 +48,14 @@ def _spans_overlap(a_start: int, a_end: int, b_start: int, b_end: int) -> bool:
 
 def _score_corpus(
     rows: list[dict[str, Any]],
+    guardian: Any = None,
 ) -> tuple[dict[str, dict[str, int]], list[float]]:
     """Compute TP/FN/FP counts and per-row latency for *rows*."""
-    from guardian_br.guardian import Guardian
+    if guardian is None:
+        from guardian_br.guardian import Guardian
 
-    guardian = Guardian()
-    guardian.scan("aquecimento")  # warm up analyzer lazy-init
+        guardian = Guardian()
+        guardian.scan("aquecimento")  # warm up analyzer lazy-init
 
     stats: dict[str, dict[str, int]] = {}
     latencies: list[float] = []
@@ -87,11 +99,45 @@ def _score_corpus(
     return stats, latencies
 
 
+def _score_adversarial(
+    rows: list[dict[str, Any]],
+    guardian: Any,
+) -> tuple[dict[str, dict[str, int]], list[float]]:
+    """Compute per-category adversarial confusion matrices."""
+    stats: dict[str, dict[str, int]] = {}
+    latencies: list[float] = []
+
+    for row in rows:
+        text: str = row["text"]
+        gold_adversarial: bool = bool(row.get("adversarial", False))
+        category: str = row.get("category", "unknown")
+
+        entry = stats.setdefault(category, {"tp": 0, "fn": 0, "fp": 0, "tn": 0})
+
+        t0 = time.perf_counter()
+        result = guardian.scan(text)
+        latencies.append((time.perf_counter() - t0) * 1000)
+
+        predicted_unsafe = result.adversarial is not None and result.adversarial.unsafe
+
+        if gold_adversarial and predicted_unsafe:
+            entry["tp"] += 1
+        elif gold_adversarial and not predicted_unsafe:
+            entry["fn"] += 1
+        elif not gold_adversarial and predicted_unsafe:
+            entry["fp"] += 1
+        else:
+            entry["tn"] += 1
+
+    return stats, latencies
+
+
 def _format_report(
     stats: dict[str, dict[str, int]],
     latencies: list[float],
     category: str,
     corpus_path: Path,
+    adversarial_stats: dict[str, dict[str, int]] | None = None,
 ) -> str:
     lines: list[str] = []
     lines.append("# Guardian-BR Eval Report")
@@ -115,9 +161,18 @@ def _format_report(
 
     lines.append("## Adversarial Results")
     lines.append("")
-    lines.append("| Category | Recall | Precision |")
-    lines.append("|----------|--------|-----------|")
-    lines.append("| (not evaluated in this run) | n/a | n/a |")
+    if adversarial_stats:
+        lines.append("| Category | TP | FN | FP | TN | Recall | Precision |")
+        lines.append("|----------|----|----|----|----|--------|-----------|")
+        for cat, s in sorted(adversarial_stats.items()):
+            tp, fn, fp, tn = s["tp"], s["fn"], s["fp"], s["tn"]
+            recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+            precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+            lines.append(f"| {cat} | {tp} | {fn} | {fp} | {tn} | {recall:.1%} | {precision:.1%} |")
+    else:
+        lines.append("| Category | Recall | Precision |")
+        lines.append("|----------|--------|-----------|")
+        lines.append("| (not evaluated in this run) | n/a | n/a |")
     lines.append("")
 
     if latencies:
@@ -161,6 +216,12 @@ def main(argv: list[str] | None = None) -> int:
         default=Path("evals/history"),
         help="Directory to archive timestamped report snapshots",
     )
+    parser.add_argument(
+        "--mode",
+        choices=["pii", "adversarial", "both", "auto"],
+        default="auto",
+        help="Which scoring pass to run. Default: auto-detect from corpus shape.",
+    )
     args = parser.parse_args(argv)
 
     if not args.corpus.exists():
@@ -171,10 +232,30 @@ def main(argv: list[str] | None = None) -> int:
     if not rows:
         print(f"Warning: no rows matched category={args.category!r}", file=sys.stderr)
 
-    print(f"Scoring {len(rows)} rows (category={args.category!r})...")
-    stats, latencies = _score_corpus(rows)
+    kind = _detect_corpus_kind(rows) if args.mode == "auto" else args.mode
+    print(f"Scoring {len(rows)} rows (category={args.category!r}, mode={kind!r})...")
 
-    report = _format_report(stats, latencies, args.category, args.corpus)
+    pii_stats: dict[str, dict[str, int]] = {}
+    adv_stats: dict[str, dict[str, int]] | None = None
+    latencies: list[float] = []
+
+    run_pii = kind in ("pii", "mixed", "both")
+    run_adv = kind in ("adversarial", "mixed", "both")
+
+    if run_pii or run_adv:
+        from guardian_br.guardian import Guardian
+
+        guardian = Guardian()
+        guardian.scan("aquecimento")
+
+        if run_pii:
+            pii_stats, latencies = _score_corpus(rows, guardian)
+
+        if run_adv:
+            adv_stats, adv_latencies = _score_adversarial(rows, guardian)
+            latencies = latencies + adv_latencies
+
+    report = _format_report(pii_stats, latencies, args.category, args.corpus, adversarial_stats=adv_stats)
     args.out.write_text(report, encoding="utf-8")
     print(f"Report written to {args.out}")
 

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from presidio_analyzer import AnalyzerEngine
 
+from guardian_br.core.adversarial import AdversarialClassifier, AdversarialResult
 from guardian_br.core.crypto import DEKCache, decrypt_value, encrypt_value, new_dek
 from guardian_br.core.entities import BR_ENTITIES
 from guardian_br.core.errors import BlockedError
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
     pass
 
 _DEFAULT_HANDLE_TTL_S = 86_400  # 24 hours
+_ENTITY_LIST: list[str] = list(BR_ENTITIES)
 
 
 class Guardian:
@@ -44,12 +46,14 @@ class Guardian:
         analyzer: AnalyzerEngine | None = None,
         redact_store: RedactStore | None = None,
         kms: KMSProvider | None = None,
+        classifier: AdversarialClassifier | None = None,
         mode_default: Mode = Mode.REDACT,
         dek_cache_ttl_s: int = 300,
     ) -> None:
         self._analyzer = analyzer
         self._redact_store = redact_store
         self._kms = kms
+        self._classifier = classifier
         self._mode_default = mode_default
         self._dek_cache = DEKCache(ttl_s=dek_cache_ttl_s)
 
@@ -58,8 +62,12 @@ class Guardian:
         return self._mode_default
 
     def warm_up(self) -> None:
-        """Force lazy initialization of the analyzer engine."""
+        """Force lazy initialization of the analyzer engine and classifier."""
+        import contextlib
+
         self._get_analyzer()
+        with contextlib.suppress(Exception):
+            self._get_classifier().ping()
 
     def _get_analyzer(self) -> AnalyzerEngine:
         if self._analyzer is None:
@@ -80,13 +88,26 @@ class Guardian:
             self._kms = EnvKMSProvider()
         return self._kms
 
-    def scan(self, text: str, *, mode: Mode | None = None) -> ScanResult:
+    def _get_classifier(self) -> AdversarialClassifier:
+        if self._classifier is None:
+            from guardian_br.adversarial import _DisabledClassifier
+
+            self._classifier = _DisabledClassifier()
+        return self._classifier
+
+    def scan(
+        self,
+        text: str,
+        *,
+        mode: Mode | None = None,
+        skip_adversarial: bool = False,
+    ) -> ScanResult:
         """Scan *text* for BR PII and return a frozen ScanResult.
 
         Detections include only entities whose checksums pass validation.
         The ``mode`` argument overrides the instance's ``mode_default``.
 
-        BLOCK: raises BlockedError if any PII is detected.
+        BLOCK: raises BlockedError if any PII is detected OR adversarial is unsafe.
         REDACT: replaces each span with ``<ENTITY_TYPE>``.
         REVERSIBLE_REDACT: replaces each span with ``<RDX:{handle}>``
             and stores the encrypted original (AES-256-GCM) so it can be
@@ -99,7 +120,7 @@ class Guardian:
         results = analyzer.analyze(
             text=text,
             language="pt",
-            entities=list(BR_ENTITIES),
+            entities=_ENTITY_LIST,
         )
 
         detections: list[Detection] = []
@@ -116,15 +137,20 @@ class Guardian:
                 )
             )
 
+        adv: AdversarialResult | None = None
+        if not skip_adversarial:
+            adv = self._get_classifier().classify(text)
+
         if effective_mode is Mode.BLOCK:
-            if detections:
-                raise BlockedError(detections)
+            if detections or (adv is not None and adv.unsafe):
+                raise BlockedError(detections, adversarial=adv)
             return ScanResult(
                 mode=effective_mode,
                 blocked=False,
                 text=text,
                 detections=[],
                 redacted_text=text,
+                adversarial=adv,
             )
 
         if effective_mode is Mode.REVERSIBLE_REDACT:
@@ -143,6 +169,7 @@ class Guardian:
             text=text,
             detections=detections,
             redacted_text=redacted_text,
+            adversarial=adv,
         )
 
     def _store_and_tokenize(

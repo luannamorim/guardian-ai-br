@@ -11,10 +11,7 @@ from guardian_br.core.errors import BlockedError
 
 async def blocked_error_handler(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, BlockedError)
-    body = ErrorResponse(
-        detail=f"scan blocked: {len(exc.detections)} PII detection(s)",
-        code="blocked",
-    )
+    body = ErrorResponse(detail=str(exc), code="blocked", adversarial=exc.adversarial)
     return JSONResponse(status_code=422, content=body.model_dump())
 
 

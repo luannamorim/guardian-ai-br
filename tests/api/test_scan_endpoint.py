@@ -16,7 +16,7 @@ async def test_scan_redact_cpf(client, auth_headers) -> None:
     assert resp.status_code == 200
     data = resp.json()
     assert data["redacted_text"] == "meu cpf é <BR_CPF>"
-    assert data["schema_version"] == "2"
+    assert data["schema_version"] == "3"
     assert data["mode"] == "REDACT"
     assert data["detections"][0]["lgpd_article"] is not None
 

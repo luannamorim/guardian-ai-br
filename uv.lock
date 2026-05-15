@@ -604,6 +604,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography" },
+    { name = "httpx" },
     { name = "presidio-analyzer" },
     { name = "pydantic" },
     { name = "pyyaml" },
@@ -621,7 +622,6 @@ api = [
 dev = [
     { name = "asgi-lifespan" },
     { name = "fastapi" },
-    { name = "httpx" },
     { name = "mypy" },
     { name = "prometheus-client" },
     { name = "pydantic-settings" },
@@ -641,7 +641,7 @@ requires-dist = [
     { name = "cryptography", specifier = ">=42" },
     { name = "fastapi", marker = "extra == 'api'", specifier = ">=0.110,<1" },
     { name = "guardrails-br", extras = ["api"], marker = "extra == 'dev'" },
-    { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27" },
+    { name = "httpx", specifier = ">=0.27" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10" },
     { name = "presidio-analyzer", specifier = ">=2.2.355,<3" },
     { name = "prometheus-client", marker = "extra == 'api'", specifier = ">=0.20" },

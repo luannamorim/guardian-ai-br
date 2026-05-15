@@ -1,0 +1,42 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama-models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+    restart: unless-stopped
+
+  ollama-pull:
+    image: ollama/ollama:latest
+    command: ollama pull llama-guard3:8b
+    depends_on:
+      ollama:
+        condition: service_healthy
+    volumes:
+      - ollama-models:/root/.ollama
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    restart: on-failure
+
+  guardian-br:
+    build: .
+    ports:
+      - "8000:8000"
+    depends_on:
+      ollama-pull:
+        condition: service_completed_successfully
+    environment:
+      GUARDIAN_BR_OLLAMA_BASE_URL: http://ollama:11434
+      GUARDIAN_BR_ADVERSARIAL_ENABLED: "true"
+      # GUARDIAN_BR_KEK_v1: "base64-encoded-32-byte-key"
+      # GUARDIAN_BR_KEK_CURRENT_ID: "v1"
+      # GUARDIAN_BR_API_KEYS_HASHED: "sha256:abc123..."
+    restart: unless-stopped
+
+volumes:
+  ollama-models:

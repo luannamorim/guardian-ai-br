@@ -15,6 +15,7 @@ dependencies = [
     "regex>=2024.4.16",
     "pyyaml>=6.0",
     "cryptography>=42",
+    "httpx>=0.27",
 ]
 
 [project.optional-dependencies]
@@ -33,7 +34,6 @@ dev = [
     "mypy>=1.10",
     "types-PyYAML",
     "guardrails-br[api]",
-    "httpx>=0.27",
     "pyjwt>=2.8",
     "asgi-lifespan>=2.1",
 ]
@@ -43,7 +43,11 @@ guardian-br-eval = "guardian_br.eval.runner:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/guardian_br"]
-include = ["src/guardian_br/data/*.yaml", "src/guardian_br/py.typed"]
+include = [
+    "src/guardian_br/data/*.yaml",
+    "src/guardian_br/prompts/*.md",
+    "src/guardian_br/py.typed",
+]
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -80,5 +84,5 @@ module = ["regex", "presidio_analyzer", "presidio_analyzer.*", "spacy", "spacy.*
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["slowapi", "slowapi.*", "prometheus_client", "prometheus_client.*", "pydantic_settings", "pydantic_settings.*", "jwt", "cryptography", "cryptography.*"]
+module = ["slowapi", "slowapi.*", "prometheus_client", "prometheus_client.*", "pydantic_settings", "pydantic_settings.*", "jwt", "cryptography", "cryptography.*", "httpx", "httpx.*"]
 ignore_missing_imports = true

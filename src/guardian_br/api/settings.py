@@ -18,6 +18,15 @@ class Settings(BaseSettings):
     default_mode: Mode = Mode.REDACT
     metrics_require_auth: bool = True
     max_text_len: int = 10_240
+    ollama_base_url: str = "http://localhost:11434"
+    llama_guard_model: str = "llama-guard3:8b"
+    adversarial_enabled: bool = True
+    adversarial_timeout_s: float = 1.5
+    adversarial_cache_ttl_s: int = 300
+    adversarial_cache_max: int = 1024
+    adversarial_prompt: str = "llama_guard_ptbr_v1"
+    adversarial_warmup_on_startup: bool = True
+    adversarial_fail_open: bool = True
 
     @field_validator("api_keys_hashed", mode="before")
     @classmethod

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from guardian_br.core.adversarial import AdversarialResult
+
 if TYPE_CHECKING:
     from guardian_br.core.schemas import Detection
 
@@ -11,16 +13,29 @@ class GuardianError(Exception):
 
 
 class BlockedError(GuardianError):
-    """Raised by Guardian.scan when mode=BLOCK and PII is detected.
+    """Raised by Guardian.scan when mode=BLOCK and PII or adversarial unsafe is detected.
 
     Library callers: use try/except BlockedError.
     FastAPI layer maps this to HTTP 422.
-    The detections attribute lists what triggered the block.
+    `detections` lists what PII triggered the block (may be empty if only adversarial).
+    `adversarial` carries the adversarial classification when it contributed to the block.
     """
 
-    def __init__(self, detections: list[Detection]) -> None:
+    def __init__(
+        self,
+        detections: list[Detection],
+        *,
+        adversarial: AdversarialResult | None = None,
+    ) -> None:
         self.detections = detections
-        super().__init__(f"scan blocked: {len(detections)} detection(s)")
+        self.adversarial = adversarial
+        if detections and adversarial and adversarial.unsafe:
+            reason = "PII + adversarial"
+        elif adversarial and adversarial.unsafe:
+            reason = "adversarial"
+        else:
+            reason = "PII"
+        super().__init__(f"scan blocked ({reason}): {len(detections)} detection(s)")
 
 
 class HandleNotFound(GuardianError):

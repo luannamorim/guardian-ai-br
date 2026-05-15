@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Request
+from starlette.concurrency import run_in_threadpool
 
 from guardian_br.api import metrics as m
 from guardian_br.api.auth import Principal, get_principal
@@ -22,7 +23,7 @@ async def unmask_endpoint(
     Returns 404 for unknown, expired, and tampered handles — the
     response is intentionally uniform to prevent oracle attacks.
     """
-    value = guardian.unmask(body.handle)
+    value = await run_in_threadpool(guardian.unmask, body.handle)
     if value is None:
         m.UNMASK_TOTAL.labels(result="miss").inc()
         raise HandleNotFound(body.handle)

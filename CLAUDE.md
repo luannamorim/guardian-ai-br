@@ -59,6 +59,8 @@ ollama pull llama-guard3:8b                     # pull safety model (~5GB)
 ## Gotchas
 
 - **Llama Guard cold start > 2s.** The `/healthz` readiness probe blocks until the model is warm. Do not write tests that race a cold container — always wait for the probe.
+- **Adversarial unit tests use `httpx.MockTransport`; real Ollama integration tests gated by `OLLAMA_INTEGRATION=1`.** The `OllamaClassifier` accepts an injected `_client` attribute for testing — never hit a real daemon in CI.
+- **`regex.compile()` does not accept `timeout=`** — pass `timeout=` to the `.match()` / `.search()` / `.findall()` call, not to `compile()`. The module constant `_TIMEOUT_S = 0.05` lives near the match site.
 - **`RedactStore` Protocol contract suite is authoritative.** Adapter packages (`guardrails-br-postgres`, `guardrails-br-redis`) must pass the full contract test suite in `tests/redact_store/`. There is no partial compliance.
 - **`make eval` is slow (≥30s on CPU).** Use `make eval-quick CATEGORY=<name>` during development. Run the full suite before opening a PR via `/eval`.
 - **Reclame Aqui was dropped as a corpus source.** Primary source is Consumidor.gov.br (Decreto 8.573/2015, federal public data) + CGU ouvidoria + C-ORAL-BRASIL. RA may be referenced only for stylistic inspiration when generating synthetic data — never republished verbatim. See SPEC §Resolved Decisions #3.
@@ -76,10 +78,10 @@ guardian-ai-br/
 │       │   └── recognizers/
 │       ├── lgpd/           # LGPD mapping loader
 │       ├── eval/           # benchmark runner (make eval / make eval-quick)
-│       ├── adversarial/    # Llama Guard wrapper + PT-BR classifier [PR3]
-│       ├── api/            # FastAPI app, routes, auth dependency [PR2]
+│       ├── adversarial/    # Llama Guard wrapper + PT-BR classifier
+│       ├── api/            # FastAPI app, routes, auth dependency
 │       ├── dashboard/      # Streamlit dashboard [PR5]
-│       └── prompts/        # prompt files for Llama Guard context [PR3]
+│       └── prompts/        # prompt files for Llama Guard context
 ├── tests/
 │   ├── redact_store/       # RedactStore Protocol contract suite
 │   ├── pii/

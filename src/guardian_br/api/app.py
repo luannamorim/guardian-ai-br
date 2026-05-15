@@ -20,6 +20,7 @@ from fastapi.exceptions import RequestValidationError
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
+from guardian_br.adversarial.factory import build_default_classifier
 from guardian_br.api.errors import (
     blocked_error_handler,
     handle_not_found_handler,
@@ -33,6 +34,7 @@ from guardian_br.api.routes_metrics import router as metrics_router
 from guardian_br.api.routes_scan import router as scan_router
 from guardian_br.api.routes_unmask import router as unmask_router
 from guardian_br.api.settings import Settings
+from guardian_br.core.adversarial import AdversarialClassifier
 from guardian_br.core.errors import BlockedError, HandleNotFound
 from guardian_br.core.kms import EnvKMSProvider
 from guardian_br.core.sqlite_redact_store import SQLiteRedactStore
@@ -76,6 +78,24 @@ async def _make_kms_check(
     return _check
 
 
+async def _make_llama_guard_check(
+    classifier: AdversarialClassifier,
+    enabled: bool,
+) -> Callable[[], Awaitable[_CheckResult]]:
+    async def _check() -> _CheckResult:
+        if not enabled:
+            return "skipped"
+        from starlette.concurrency import run_in_threadpool
+
+        try:
+            ok = await run_in_threadpool(classifier.ping)
+            return "ok" if ok else "fail"
+        except Exception:
+            return "fail"
+
+    return _check
+
+
 def create_app(*, settings: Settings | None = None) -> FastAPI:
     """Create and configure the FastAPI application.
 
@@ -99,30 +119,45 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         store = SQLiteRedactStore()
         kms = EnvKMSProvider()
+        classifier = build_default_classifier(resolved_settings)
         guardian = Guardian(
             redact_store=store,
             kms=kms,
+            classifier=classifier,
             mode_default=resolved_settings.default_mode,
         )
         guardian.warm_up()
+
+        if (
+            resolved_settings.adversarial_enabled
+            and resolved_settings.adversarial_warmup_on_startup
+        ):
+            import contextlib
+
+            from starlette.concurrency import run_in_threadpool
+
+            with contextlib.suppress(Exception):
+                await run_in_threadpool(classifier.classify, "aquecimento")
 
         health = HealthRegistry()
         health.register("analyzer", await _make_analyzer_check(guardian))
         health.register("redact_store", await _make_store_check(store))
         health.register("kms", await _make_kms_check(kms))
+        health.register(
+            "llama_guard",
+            await _make_llama_guard_check(classifier, resolved_settings.adversarial_enabled),
+        )
 
         app.state.guardian = guardian
         app.state.settings = resolved_settings
         app.state.health = health
+        app.state.classifier = classifier
 
         yield
 
     app = FastAPI(
         title="Guardian-BR",
-        description=(
-            "Brazilian LLM guardrails layer — BR PII detection with LGPD mapping "
-            "and PT-BR adversarial classification (adversarial: PR3)."
-        ),
+        description="Brazilian LLM guardrails layer — BR PII detection with LGPD mapping and PT-BR adversarial classification.",
         version="0.1.0",
         lifespan=lifespan,
     )

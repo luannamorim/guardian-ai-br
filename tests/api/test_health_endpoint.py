@@ -45,4 +45,4 @@ async def test_healthz_components_shape(client) -> None:
 @pytest.mark.asyncio
 async def test_healthz_schema_version(client) -> None:
     resp = await client.get("/v1/healthz")
-    assert resp.json()["schema_version"] == "2"
+    assert resp.json()["schema_version"] == "3"

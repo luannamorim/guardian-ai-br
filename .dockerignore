@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+.git/
+tests/
+evals/
+docs/
+*.egg-info/
+.ruff_cache/
+.mypy_cache/
+eval_report.md
+evals/history/

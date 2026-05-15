@@ -42,6 +42,7 @@ async def make_test_app(settings: Settings, guardian: Guardian) -> FastAPI:
     health.register("analyzer", _ok)
     health.register("redact_store", _ok)
     health.register("kms", _ok)
+    health.register("llama_guard", _ok)
     created.state.guardian = guardian
     created.state.settings = settings
     created.state.health = health
@@ -79,7 +80,9 @@ def settings(hashed_api_key: str) -> Settings:
 def guardian(kek: str) -> Guardian:
     store = SQLiteRedactStore(":memory:")
     kms = EnvKMSProvider()
-    return Guardian(redact_store=store, kms=kms)
+    from guardian_br.adversarial.ollama_classifier import _DisabledClassifier
+
+    return Guardian(redact_store=store, kms=kms, classifier=_DisabledClassifier())  # type: ignore[arg-type]
 
 
 @pytest_asyncio.fixture
@@ -114,6 +117,7 @@ async def _lifespan_shim(
     health.register("analyzer", _ok)
     health.register("redact_store", _ok)
     health.register("kms", _ok)
+    health.register("llama_guard", _ok)
 
     app.state.guardian = guardian
     app.state.settings = settings
