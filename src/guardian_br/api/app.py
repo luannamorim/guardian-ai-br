@@ -151,9 +151,7 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
         if resolved_settings.audit_hmac_chain and resolved_settings.audit_hmac_secret:
             import base64
 
-            hmac_secret = base64.b64decode(
-                resolved_settings.audit_hmac_secret.get_secret_value()
-            )
+            hmac_secret = base64.b64decode(resolved_settings.audit_hmac_secret.get_secret_value())
 
         fallback = FallbackAuditWriter(resolved_settings.audit_fallback_path)
         auditor = Auditor(

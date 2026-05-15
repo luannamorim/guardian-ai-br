@@ -26,6 +26,12 @@ api = [
     "pydantic-settings>=2.2",
     "python-multipart>=0.0.9",
 ]
+dashboard = [
+    "streamlit>=1.32,<2",
+    "pandas>=2.2,<3",
+    "altair>=5,<6",
+    "pydantic-settings>=2.2",
+]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
@@ -34,12 +40,14 @@ dev = [
     "mypy>=1.10",
     "types-PyYAML",
     "guardrails-br[api]",
+    "guardrails-br[dashboard]",
     "pyjwt>=2.8",
     "asgi-lifespan>=2.1",
 ]
 
 [project.scripts]
 guardian-br-eval = "guardian_br.eval.runner:main"
+guardian-br-dashboard = "guardian_br.dashboard.__main__:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/guardian_br"]
@@ -84,5 +92,5 @@ module = ["regex", "presidio_analyzer", "presidio_analyzer.*", "spacy", "spacy.*
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["slowapi", "slowapi.*", "prometheus_client", "prometheus_client.*", "pydantic_settings", "pydantic_settings.*", "jwt", "cryptography", "cryptography.*", "httpx", "httpx.*"]
+module = ["slowapi", "slowapi.*", "prometheus_client", "prometheus_client.*", "pydantic_settings", "pydantic_settings.*", "jwt", "cryptography", "cryptography.*", "httpx", "httpx.*", "streamlit", "streamlit.*", "pandas", "pandas.*", "altair", "altair.*"]
 ignore_missing_imports = true

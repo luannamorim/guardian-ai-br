@@ -43,5 +43,19 @@ services:
       # GUARDIAN_BR_AUDIT_FALLBACK_PATH: "/var/lib/guardian/audit_fallback.jsonl"
     restart: unless-stopped
 
+  guardian-br-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+    ports:
+      - "8501:8501"
+    depends_on:
+      guardian-br:
+        condition: service_healthy
+    environment:
+      GUARDIAN_BR_DASHBOARD_API_URL: http://guardian-br:8000
+      # GUARDIAN_BR_DASHBOARD_API_KEY: "audit-reader-key  (must match a key hashed with :audit:read suffix in the API service)"
+    restart: unless-stopped
+
 volumes:
   ollama-models:

@@ -65,6 +65,29 @@ Every scan, unmask, and auth failure produces an append-only audit row in SQLite
 | `sha256:<hex>` | `/v1/scan`, `/v1/unmask` |
 | `sha256:<hex>:audit:read` | `/v1/audit` (also scan/unmask) |
 
+## Dashboard
+
+Streamlit dashboard showing violations over time, by PII type, by LGPD article, and top adversarial categories.
+
+```bash
+pip install 'guardrails-br[dashboard]'
+
+# Point at the running API (must have an audit:read key)
+export GUARDIAN_BR_DASHBOARD_API_URL=http://localhost:8000
+export GUARDIAN_BR_DASHBOARD_API_KEY=<your-audit-key>
+
+guardian-br-dashboard   # opens http://localhost:8501
+```
+
+Or via Docker Compose alongside the API:
+
+```bash
+docker compose up guardian-br-dashboard
+# opens http://localhost:8501
+```
+
+The dashboard reads `/v1/audit` over HTTP. `GUARDIAN_BR_DASHBOARD_API_KEY` must be a key whose hash in `GUARDIAN_BR_API_KEYS_HASHED` carries the `:audit:read` suffix (format: `sha256:<hash>:audit:read`).
+
 ## Status
 
 `v0.1.0` — CPF, CNPJ, RG, CNH, título de eleitor, and PIS detection; reversible redact; adversarial classification; audit log persistence.
