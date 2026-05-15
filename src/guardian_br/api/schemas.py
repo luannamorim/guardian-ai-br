@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from guardian_br.core.adversarial import AdversarialResult
 from guardian_br.core.modes import Mode
+from guardian_br.core.redact_store import AuditRow
 from guardian_br.core.schemas import SCHEMA_VERSION
 
 _HANDLE_PATTERN = r"^[a-f0-9]{32}$"
@@ -40,3 +42,8 @@ class ErrorResponse(BaseModel):
     code: str
     schema_version: Literal["3"] = SCHEMA_VERSION
     adversarial: AdversarialResult | None = None
+
+
+class AuditQueryResponse(BaseModel):
+    rows: list[AuditRow]
+    next_since: datetime | None = None

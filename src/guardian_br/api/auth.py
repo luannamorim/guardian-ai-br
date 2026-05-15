@@ -50,6 +50,12 @@ class Principal(BaseModel):
     scopes: frozenset[str] = frozenset()
 
 
+def _fingerprint(request: Request) -> str:
+    ua = request.headers.get("user-agent", "")
+    raw = f"{request.method}|{request.url.path}|{ua}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+
 def _log_auth_failure(
     request: Request,
     *,
@@ -76,9 +82,17 @@ async def get_principal(
 
     Override via app.dependency_overrides[get_principal] = custom_validator.
     """
+    auditor = getattr(request.app.state, "auditor", None)
+    client_ip = request.client.host if request.client else None
+    fingerprint = _fingerprint(request)
+
     if api_key is None:
         _log_auth_failure(request, reason="missing", key_hash_prefix=None)
         m.AUTH_FAILURES.labels(reason="missing").inc()
+        if auditor is not None:
+            auditor.record_auth_failure(
+                client_ip=client_ip, request_fingerprint=fingerprint, reason="missing"
+            )
         raise HTTPException(
             status_code=401,
             detail="X-API-Key header required",
@@ -89,21 +103,32 @@ async def get_principal(
 
     # Drain full loop — never short-circuit — to keep timing flat regardless
     # of key position in the rotation set.
+    # Key format: sha256:<hex>[:<scope_csv>]
     matched = False
+    matched_scopes: frozenset[str] = frozenset()
     for stored in settings.api_keys_hashed:
-        expected = stored.removeprefix("sha256:")
-        if secrets.compare_digest(received_hash, expected):
+        after_prefix = stored.removeprefix("sha256:")
+        parts = after_prefix.split(":", 1)
+        stored_hash = parts[0]
+        scopes_str = parts[1] if len(parts) > 1 else ""
+        if secrets.compare_digest(received_hash, stored_hash):
             matched = True
+            matched_scopes = frozenset(s.strip() for s in scopes_str.split(",") if s.strip())
 
     if not matched:
         _log_auth_failure(request, reason="invalid", key_hash_prefix=received_hash[:12])
         m.AUTH_FAILURES.labels(reason="invalid").inc()
+        if auditor is not None:
+            auditor.record_auth_failure(
+                client_ip=client_ip, request_fingerprint=fingerprint, reason="invalid"
+            )
         raise HTTPException(status_code=403, detail="invalid API key")
 
     principal = Principal(
         id=received_hash[:8],
         key_hash=received_hash,
         auth_method="api_key",
+        scopes=matched_scopes,
     )
     request.state.principal = principal
     return principal

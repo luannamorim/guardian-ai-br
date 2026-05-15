@@ -8,6 +8,7 @@ from guardian_br.api.settings import Settings
 
 if TYPE_CHECKING:
     from guardian_br.api.routes_health import HealthRegistry
+    from guardian_br.core.redact_store import RedactStore
     from guardian_br.guardian import Guardian
 
 
@@ -21,3 +22,7 @@ def get_guardian(request: Request) -> Guardian:
 
 def get_health_registry(request: Request) -> HealthRegistry:
     return request.app.state.health  # type: ignore[no-any-return]
+
+
+def get_store(request: Request) -> RedactStore:
+    return request.app.state.store  # type: ignore[no-any-return]

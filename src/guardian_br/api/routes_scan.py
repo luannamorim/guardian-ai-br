@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Request
 from starlette.concurrency import run_in_threadpool
 
 from guardian_br.api import metrics as m
-from guardian_br.api.auth import Principal, get_principal
+from guardian_br.api.auth import Principal, _fingerprint, get_principal
 from guardian_br.api.dependencies import get_guardian
 from guardian_br.api.schemas import ScanRequest
 from guardian_br.core.errors import BlockedError
@@ -39,6 +39,9 @@ async def scan_endpoint(
             body.text,
             mode=effective_mode,
             skip_adversarial=body.skip_adversarial,
+            principal_id=principal.id,
+            client_ip=request.client.host if request.client else None,
+            request_fingerprint=_fingerprint(request),
         )
         elapsed = time.perf_counter() - t0
         mode_label = result.mode.value

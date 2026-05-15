@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -18,7 +19,7 @@ from guardian_br.core.schemas import Detection, ScanResult
 from guardian_br.lgpd.loader import load_lgpd_mapping
 
 if TYPE_CHECKING:
-    pass
+    from guardian_br.core.auditor import Auditor
 
 _DEFAULT_HANDLE_TTL_S = 86_400  # 24 hours
 _ENTITY_LIST: list[str] = list(BR_ENTITIES)
@@ -47,6 +48,7 @@ class Guardian:
         redact_store: RedactStore | None = None,
         kms: KMSProvider | None = None,
         classifier: AdversarialClassifier | None = None,
+        auditor: Auditor | None = None,
         mode_default: Mode = Mode.REDACT,
         dek_cache_ttl_s: int = 300,
     ) -> None:
@@ -54,6 +56,7 @@ class Guardian:
         self._redact_store = redact_store
         self._kms = kms
         self._classifier = classifier
+        self._auditor = auditor
         self._mode_default = mode_default
         self._dek_cache = DEKCache(ttl_s=dek_cache_ttl_s)
 
@@ -95,12 +98,22 @@ class Guardian:
             self._classifier = _DisabledClassifier()
         return self._classifier
 
+    def _get_auditor(self) -> Auditor:
+        if self._auditor is None:
+            from guardian_br.core.auditor import _DisabledAuditor
+
+            self._auditor = _DisabledAuditor()  # type: ignore[assignment]
+        return self._auditor  # type: ignore[return-value]
+
     def scan(
         self,
         text: str,
         *,
         mode: Mode | None = None,
         skip_adversarial: bool = False,
+        principal_id: str | None = None,
+        client_ip: str | None = None,
+        request_fingerprint: str | None = None,
     ) -> ScanResult:
         """Scan *text* for BR PII and return a frozen ScanResult.
 
@@ -113,6 +126,7 @@ class Guardian:
             and stores the encrypted original (AES-256-GCM) so it can be
             recovered via unmask(handle).
         """
+        t0 = time.perf_counter()
         effective_mode = mode if mode is not None else self._mode_default
         analyzer = self._get_analyzer()
         mapping = load_lgpd_mapping()
@@ -141,8 +155,24 @@ class Guardian:
         if not skip_adversarial:
             adv = self._get_classifier().classify(text)
 
+        latency_ms = (time.perf_counter() - t0) * 1000
+        is_blocked = effective_mode is Mode.BLOCK and (
+            bool(detections) or (adv is not None and adv.unsafe)
+        )
+        self._get_auditor().record_scan(
+            text=text,
+            principal_id=principal_id,
+            client_ip=client_ip,
+            request_fingerprint=request_fingerprint,
+            mode=effective_mode.value,
+            detections=detections,
+            adversarial=adv,
+            latency_ms=latency_ms,
+            blocked=is_blocked,
+        )
+
         if effective_mode is Mode.BLOCK:
-            if detections or (adv is not None and adv.unsafe):
+            if is_blocked:
                 raise BlockedError(detections, adversarial=adv)
             return ScanResult(
                 mode=effective_mode,
@@ -205,12 +235,15 @@ class Guardian:
                     expires_at=expires_at,
                 )
             )
+            self._get_auditor().record_handle_event(
+                action="handle_put", handle=handle, entity_type=det.entity_type
+            )
             self._dek_cache.put((handle, wrapped.kek_key_id), dek)
             del dek
             updated.append(det.model_copy(update={"redact_token": handle}))
         return updated
 
-    def unmask(self, handle: str) -> str | None:
+    def unmask(self, handle: str, *, principal_id: str | None = None) -> str | None:
         """Return the original value for *handle*, or None if not found/expired/tampered.
 
         No authorization check — library callers are trusted. The FastAPI layer
@@ -219,6 +252,9 @@ class Guardian:
         store = self._get_redact_store()
         record = store.get(handle)
         if record is None:
+            self._get_auditor().record_unmask(
+                handle=handle, principal_id=principal_id, success=False
+            )
             return None
         cache_key = (handle, record.kek_key_id)
         dek = self._dek_cache.get(cache_key)
@@ -229,13 +265,18 @@ class Guardian:
                     WrappedDEK(ciphertext=record.wrapped_dek, kek_key_id=record.kek_key_id)
                 )
             except Exception:
+                self._get_auditor().record_unmask(
+                    handle=handle, principal_id=principal_id, success=False
+                )
                 return None
             self._dek_cache.put(cache_key, dek)
         aad = handle.encode() + b"|" + record.entity_type.encode()
         plaintext_bytes = decrypt_value(record.ciphertext, record.nonce, dek, aad)
-        if plaintext_bytes is None:
+        success = plaintext_bytes is not None
+        self._get_auditor().record_unmask(handle=handle, principal_id=principal_id, success=success)
+        if not success:
             return None
-        return plaintext_bytes.decode("utf-8")
+        return plaintext_bytes.decode("utf-8")  # type: ignore[union-attr]
 
 
 def _redact(

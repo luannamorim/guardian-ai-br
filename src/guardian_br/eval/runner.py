@@ -255,7 +255,9 @@ def main(argv: list[str] | None = None) -> int:
             adv_stats, adv_latencies = _score_adversarial(rows, guardian)
             latencies = latencies + adv_latencies
 
-    report = _format_report(pii_stats, latencies, args.category, args.corpus, adversarial_stats=adv_stats)
+    report = _format_report(
+        pii_stats, latencies, args.category, args.corpus, adversarial_stats=adv_stats
+    )
     args.out.write_text(report, encoding="utf-8")
     print(f"Report written to {args.out}")
 

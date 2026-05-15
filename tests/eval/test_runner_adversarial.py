@@ -124,7 +124,9 @@ def test_format_report_with_adversarial_stats() -> None:
         "ptbr_injection": {"tp": 10, "fn": 2, "fp": 1, "tn": 5},
         "legitimate_banking": {"tp": 0, "fn": 0, "fp": 0, "tn": 8},
     }
-    report = _format_report({}, [1.0, 2.0], "all", Path("evals/adversarial_corpus.jsonl"), adversarial_stats=adv_stats)
+    report = _format_report(
+        {}, [1.0, 2.0], "all", Path("evals/adversarial_corpus.jsonl"), adversarial_stats=adv_stats
+    )
     assert "## Adversarial Results" in report
     assert "ptbr_injection" in report
     assert "legitimate_banking" in report
@@ -142,7 +144,13 @@ def test_format_report_placeholder_when_no_adversarial_stats() -> None:
 
 
 def test_format_report_adversarial_section_comes_after_pii() -> None:
-    report = _format_report({}, [1.0], "all", Path("evals/corpus.jsonl"), adversarial_stats={"cat": {"tp": 1, "fn": 0, "fp": 0, "tn": 0}})
+    report = _format_report(
+        {},
+        [1.0],
+        "all",
+        Path("evals/corpus.jsonl"),
+        adversarial_stats={"cat": {"tp": 1, "fn": 0, "fp": 0, "tn": 0}},
+    )
     pii_pos = report.index("## PII Results")
     adv_pos = report.index("## Adversarial Results")
     assert pii_pos < adv_pos

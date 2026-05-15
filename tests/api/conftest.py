@@ -28,11 +28,14 @@ def _make_key_hash(key: str) -> str:
 async def make_test_app(settings: Settings, guardian: Guardian) -> FastAPI:
     """Create a test app with state pre-seeded, bypassing the real lifespan."""
     from guardian_br.api.app import create_app
-    from guardian_br.api.dependencies import get_guardian
+    from guardian_br.api.dependencies import get_guardian, get_store
     from guardian_br.api.routes_health import HealthRegistry
+    from guardian_br.core.auditor import _DisabledAuditor
 
     created = create_app(settings=settings)
     created.dependency_overrides[get_guardian] = lambda: guardian
+    store = SQLiteRedactStore(":memory:")
+    created.dependency_overrides[get_store] = lambda: store
 
     health = HealthRegistry()
 
@@ -43,9 +46,12 @@ async def make_test_app(settings: Settings, guardian: Guardian) -> FastAPI:
     health.register("redact_store", _ok)
     health.register("kms", _ok)
     health.register("llama_guard", _ok)
+    health.register("audit_log", _ok)
     created.state.guardian = guardian
     created.state.settings = settings
     created.state.health = health
+    created.state.store = store
+    created.state.auditor = _DisabledAuditor()
     return created
 
 
@@ -107,7 +113,9 @@ async def _lifespan_shim(
     settings: Settings,
 ) -> AsyncGenerator[None, None]:
     """Set up app.state without going through the real lifespan (which tries to read KMS env)."""
+    from guardian_br.api.dependencies import get_store
     from guardian_br.api.routes_health import HealthRegistry
+    from guardian_br.core.auditor import _DisabledAuditor
 
     health = HealthRegistry()
 
@@ -118,10 +126,15 @@ async def _lifespan_shim(
     health.register("redact_store", _ok)
     health.register("kms", _ok)
     health.register("llama_guard", _ok)
+    health.register("audit_log", _ok)
 
+    store = SQLiteRedactStore(":memory:")
+    app.dependency_overrides[get_store] = lambda: store
     app.state.guardian = guardian
     app.state.settings = settings
     app.state.health = health
+    app.state.store = store
+    app.state.auditor = _DisabledAuditor()
     yield
 
 

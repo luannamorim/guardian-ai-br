@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from pydantic import field_validator
+from pathlib import Path
+
+from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from guardian_br.core.modes import Mode
@@ -27,6 +29,12 @@ class Settings(BaseSettings):
     adversarial_prompt: str = "llama_guard_ptbr_v1"
     adversarial_warmup_on_startup: bool = True
     adversarial_fail_open: bool = True
+
+    audit_salt: SecretStr | None = None
+    audit_salt_key_id: str = "default"
+    audit_hmac_chain: bool = False
+    audit_hmac_secret: SecretStr | None = None
+    audit_fallback_path: Path = Path("~/.guardian_br/audit_fallback.jsonl").expanduser()
 
     @field_validator("api_keys_hashed", mode="before")
     @classmethod

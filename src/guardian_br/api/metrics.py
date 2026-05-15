@@ -65,3 +65,25 @@ ADVERSARIAL_CACHE_SIZE = Gauge(
     "Current adversarial TTL cache size",
     registry=REGISTRY,
 )
+
+AUDIT_WRITES = Counter(
+    "guardian_audit_writes_total",
+    "Audit log write attempts by event type and outcome",
+    ["event_type", "outcome"],
+    registry=REGISTRY,
+)
+
+AUDIT_FALLBACK = Counter(
+    "guardian_audit_log_fallback_total",
+    "Audit log fallback activations by reason",
+    ["reason"],
+    registry=REGISTRY,
+)
+
+AUDIT_QUERY_LATENCY = Histogram(
+    "guardian_audit_query_latency_seconds",
+    "Audit log query latency by outcome",
+    ["outcome"],
+    buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0),
+    registry=REGISTRY,
+)

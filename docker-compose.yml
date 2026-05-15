@@ -33,9 +33,14 @@ services:
     environment:
       GUARDIAN_BR_OLLAMA_BASE_URL: http://ollama:11434
       GUARDIAN_BR_ADVERSARIAL_ENABLED: "true"
+      GUARDIAN_BR_AUDIT_HMAC_CHAIN: "true"
       # GUARDIAN_BR_KEK_v1: "base64-encoded-32-byte-key"
       # GUARDIAN_BR_KEK_CURRENT_ID: "v1"
-      # GUARDIAN_BR_API_KEYS_HASHED: "sha256:abc123..."
+      # GUARDIAN_BR_API_KEYS_HASHED: "sha256:abc123...  (scan key, no scope suffix)"
+      # GUARDIAN_BR_API_KEYS_HASHED: "sha256:abc123...:audit:read  (audit reader key)"
+      # GUARDIAN_BR_AUDIT_SALT: "base64-encoded-32-byte-salt  (required in prod; random per-process if absent)"
+      # GUARDIAN_BR_AUDIT_HMAC_SECRET: "base64-encoded-32-byte-secret  (required when AUDIT_HMAC_CHAIN=true)"
+      # GUARDIAN_BR_AUDIT_FALLBACK_PATH: "/var/lib/guardian/audit_fallback.jsonl"
     restart: unless-stopped
 
 volumes:

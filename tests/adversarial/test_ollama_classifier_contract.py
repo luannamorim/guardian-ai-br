@@ -24,7 +24,11 @@ def _make_smart_transport() -> httpx.MockTransport:
             content = "unsafe\nS14" if "Ignore" in user_input else "safe"
             return httpx.Response(
                 200,
-                json={"model": "llama-guard3:8b", "message": {"role": "assistant", "content": content}, "done": True},
+                json={
+                    "model": "llama-guard3:8b",
+                    "message": {"role": "assistant", "content": content},
+                    "done": True,
+                },
             )
         return httpx.Response(404)
 
@@ -35,7 +39,5 @@ class TestOllamaClassifierContract(AdversarialClassifierContractTests):
     @pytest.fixture
     def classifier(self) -> OllamaClassifier:  # type: ignore[override]
         clf = OllamaClassifier()
-        clf._client = httpx.Client(
-            transport=_make_smart_transport(), base_url="http://mock"
-        )
+        clf._client = httpx.Client(transport=_make_smart_transport(), base_url="http://mock")
         return clf

@@ -1,4 +1,5 @@
 from guardian_br.core.adversarial import AdversarialClassifier, AdversarialResult, AdversarialSource
+from guardian_br.core.auditor import Auditor
 from guardian_br.core.errors import (
     BlockedError,
     GuardianError,
@@ -15,6 +16,7 @@ __all__ = [
     "AdversarialClassifier",
     "AdversarialResult",
     "AdversarialSource",
+    "Auditor",
     "AuditRow",
     "BlockedError",
     "Detection",

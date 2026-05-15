@@ -121,7 +121,12 @@ class OllamaClassifier:
             if not self._fail_open:
                 raise AdversarialTimeoutError("Ollama timed out") from exc
             return self._fallback_result(elapsed_ms)
-        except (httpx.ConnectError, httpx.ReadError, httpx.RemoteProtocolError, httpx.HTTPStatusError) as exc:
+        except (
+            httpx.ConnectError,
+            httpx.ReadError,
+            httpx.RemoteProtocolError,
+            httpx.HTTPStatusError,
+        ) as exc:
             elapsed_ms = (time.perf_counter() - t0) * 1000
             logger.warning("adversarial_classify_connection_error elapsed_ms=%.1f", elapsed_ms)
             if not self._fail_open:

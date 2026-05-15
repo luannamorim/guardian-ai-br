@@ -76,18 +76,24 @@ def _make_app(monkeypatch: pytest.MonkeyPatch, classifier: FakeClassifier):  # t
 
 def _adv_total(label: str, source: str) -> float:
     """Read current value of ADVERSARIAL_TOTAL for a label/source pair."""
-    return m.REGISTRY.get_sample_value(
-        "guardian_adversarial_classification_total",
-        {"label": label, "source": source},
-    ) or 0.0
+    return (
+        m.REGISTRY.get_sample_value(
+            "guardian_adversarial_classification_total",
+            {"label": label, "source": source},
+        )
+        or 0.0
+    )
 
 
 def _adv_latency_count(source: str) -> float:
     """Read the _count sample for ADVERSARIAL_LATENCY (one sample per observe)."""
-    return m.REGISTRY.get_sample_value(
-        "guardian_adversarial_latency_seconds_count",
-        {"source": source},
-    ) or 0.0
+    return (
+        m.REGISTRY.get_sample_value(
+            "guardian_adversarial_latency_seconds_count",
+            {"source": source},
+        )
+        or 0.0
+    )
 
 
 AUTH = {"X-API-Key": "metrics-test-key"}
@@ -107,7 +113,9 @@ async def test_safe_result_increments_adversarial_total(monkeypatch: pytest.Monk
 
     before = _adv_total("safe", "ollama")
 
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
         resp = await client.post(SCAN_URL, json=SCAN_BODY_SAFE, headers=AUTH)
 
     assert resp.status_code == 200
@@ -129,7 +137,9 @@ async def test_unsafe_result_increments_adversarial_total(monkeypatch: pytest.Mo
 
     before = _adv_total(unsafe_label, "ollama")
 
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
         # REDACT mode: unsafe content is allowed through (not blocked), so 200
         resp = await client.post(SCAN_URL, json=SCAN_BODY_UNSAFE, headers=AUTH)
 
@@ -146,13 +156,17 @@ async def test_unsafe_result_increments_adversarial_total(monkeypatch: pytest.Mo
 
 
 @pytest.mark.asyncio
-async def test_block_mode_unsafe_increments_adversarial_total(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_block_mode_unsafe_increments_adversarial_total(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     unsafe_label = "S1"
     app = _make_app(monkeypatch, FakeClassifier(make_unsafe_result(label=unsafe_label)))
 
     before = _adv_total(unsafe_label, "ollama")
 
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
         resp = await client.post(
             SCAN_URL,
             json={"text": SCAN_BODY_UNSAFE["text"], "mode": "BLOCK"},
@@ -177,7 +191,9 @@ async def test_adversarial_latency_histogram_observed(monkeypatch: pytest.Monkey
 
     before = _adv_latency_count("ollama")
 
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
         resp = await client.post(SCAN_URL, json=SCAN_BODY_SAFE, headers=AUTH)
 
     assert resp.status_code == 200

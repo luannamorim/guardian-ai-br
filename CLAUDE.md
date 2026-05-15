@@ -59,6 +59,8 @@ ollama pull llama-guard3:8b                     # pull safety model (~5GB)
 ## Gotchas
 
 - **Llama Guard cold start > 2s.** The `/healthz` readiness probe blocks until the model is warm. Do not write tests that race a cold container — always wait for the probe.
+- **Audit log writes are synchronous on the request thread; fallback to JSONL file when store is unreachable.** Override via `app.state.auditor` in tests — pass a `_DisabledAuditor()` to avoid file I/O in unit tests.
+- **`/v1/audit` requires `audit:read` scope.** Extend API-key format: `sha256:<hex>:audit:read` (comma-separated scopes after the hash). Scan/unmask keys (no suffix) never grant this scope.
 - **Adversarial unit tests use `httpx.MockTransport`; real Ollama integration tests gated by `OLLAMA_INTEGRATION=1`.** The `OllamaClassifier` accepts an injected `_client` attribute for testing — never hit a real daemon in CI.
 - **`regex.compile()` does not accept `timeout=`** — pass `timeout=` to the `.match()` / `.search()` / `.findall()` call, not to `compile()`. The module constant `_TIMEOUT_S = 0.05` lives near the match site.
 - **`RedactStore` Protocol contract suite is authoritative.** Adapter packages (`guardrails-br-postgres`, `guardrails-br-redis`) must pass the full contract test suite in `tests/redact_store/`. There is no partial compliance.

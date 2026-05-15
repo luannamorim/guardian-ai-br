@@ -6,6 +6,7 @@ See CLAUDE.md: "Any logger.* or print( call inside a PII-handling
 code path is a bug."
 """
 
+import json
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
@@ -58,6 +59,31 @@ class SQLiteRedactStore:
             );
             CREATE INDEX IF NOT EXISTS idx_redact_expires
                 ON redact_records(expires_at);
+
+            CREATE TABLE IF NOT EXISTS audit_log (
+                id                  TEXT PRIMARY KEY,
+                timestamp           TEXT NOT NULL,
+                event_type          TEXT NOT NULL,
+                principal_id        TEXT,
+                client_ip           TEXT,
+                request_fingerprint TEXT,
+                input_hash          TEXT,
+                salt_key_id         TEXT,
+                mode                TEXT,
+                latency_ms          REAL,
+                detections          TEXT,
+                adversarial_label   TEXT,
+                adversarial_unsafe  INTEGER,
+                blocked             INTEGER,
+                handle              TEXT,
+                entity_type         TEXT,
+                hmac_prev           TEXT,
+                hmac_self           TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_audit_timestamp
+                ON audit_log(timestamp);
+            CREATE INDEX IF NOT EXISTS idx_audit_principal
+                ON audit_log(principal_id);
         """)
 
     def put(self, record: RedactRecord) -> None:
@@ -134,6 +160,45 @@ class SQLiteRedactStore:
         )
         return cursor.rowcount
 
+    def purge_audit(self, before: datetime) -> int:
+        cursor = self._conn.execute(
+            "DELETE FROM audit_log WHERE timestamp < ?",
+            (before.isoformat(),),
+        )
+        return cursor.rowcount
+
+    def append_audit(self, row: AuditRow) -> None:
+        self._conn.execute(
+            """
+            INSERT INTO audit_log (
+                id, timestamp, event_type, principal_id, client_ip,
+                request_fingerprint, input_hash, salt_key_id, mode, latency_ms,
+                detections, adversarial_label, adversarial_unsafe, blocked,
+                handle, entity_type, hmac_prev, hmac_self
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                row.id,
+                row.timestamp.isoformat(),
+                row.event_type,
+                row.principal_id,
+                row.client_ip,
+                row.request_fingerprint,
+                row.input_hash,
+                row.salt_key_id,
+                row.mode,
+                row.latency_ms,
+                json.dumps(row.detections, separators=(",", ":")) if row.detections else "[]",
+                row.adversarial_label,
+                int(row.adversarial_unsafe) if row.adversarial_unsafe is not None else None,
+                int(row.blocked) if row.blocked is not None else None,
+                row.handle,
+                row.entity_type,
+                row.hmac_prev,
+                row.hmac_self,
+            ),
+        )
+
     def query_audit(
         self,
         *,
@@ -141,7 +206,70 @@ class SQLiteRedactStore:
         until: datetime | None = None,
         limit: int = 100,
     ) -> list[AuditRow]:
-        raise NotImplementedError(
-            "Audit log persistence is implemented in a follow-up PR. "
-            "Adapters must implement query_audit before shipping."
-        )
+        clauses = []
+        params: list[object] = []
+        if since is not None:
+            clauses.append("timestamp >= ?")
+            params.append(since.isoformat())
+        if until is not None:
+            clauses.append("timestamp <= ?")
+            params.append(until.isoformat())
+        where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        params.append(limit)
+        rows = self._conn.execute(
+            f"""
+            SELECT id, timestamp, event_type, principal_id, client_ip,
+                   request_fingerprint, input_hash, salt_key_id, mode, latency_ms,
+                   detections, adversarial_label, adversarial_unsafe, blocked,
+                   handle, entity_type, hmac_prev, hmac_self
+            FROM audit_log
+            {where}
+            ORDER BY timestamp DESC
+            LIMIT ?
+            """,
+            params,
+        ).fetchall()
+        return [_row_to_audit(r) for r in rows]
+
+
+def _row_to_audit(r: tuple) -> AuditRow:  # type: ignore[type-arg]
+    (
+        id_,
+        timestamp,
+        event_type,
+        principal_id,
+        client_ip,
+        request_fingerprint,
+        input_hash,
+        salt_key_id,
+        mode,
+        latency_ms,
+        detections_json,
+        adversarial_label,
+        adversarial_unsafe,
+        blocked,
+        handle,
+        entity_type,
+        hmac_prev,
+        hmac_self,
+    ) = r
+    return AuditRow(
+        id=id_,
+        timestamp=datetime.fromisoformat(timestamp),
+        event_type=event_type,
+        principal_id=principal_id,
+        client_ip=client_ip,
+        request_fingerprint=request_fingerprint,
+        input_hash=input_hash,
+        salt_key_id=salt_key_id,
+        mode=mode,
+        latency_ms=latency_ms,
+        detections=json.loads(detections_json) if detections_json else [],
+        adversarial_label=adversarial_label,
+        adversarial_unsafe=bool(adversarial_unsafe) if adversarial_unsafe is not None else None,
+        blocked=bool(blocked) if blocked is not None else None,
+        handle=handle,
+        entity_type=entity_type,
+        hmac_prev=hmac_prev,
+        hmac_self=hmac_self,
+    )

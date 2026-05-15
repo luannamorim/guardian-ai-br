@@ -28,6 +28,7 @@ from guardian_br.api.errors import (
     validation_error_handler,
 )
 from guardian_br.api.rate_limit import make_limiter
+from guardian_br.api.routes_audit import router as audit_router
 from guardian_br.api.routes_health import HealthRegistry
 from guardian_br.api.routes_health import router as health_router
 from guardian_br.api.routes_metrics import router as metrics_router
@@ -35,6 +36,9 @@ from guardian_br.api.routes_scan import router as scan_router
 from guardian_br.api.routes_unmask import router as unmask_router
 from guardian_br.api.settings import Settings
 from guardian_br.core.adversarial import AdversarialClassifier
+from guardian_br.core.audit_fallback import FallbackAuditWriter
+from guardian_br.core.audit_hash import load_salt
+from guardian_br.core.auditor import Auditor
 from guardian_br.core.errors import BlockedError, HandleNotFound
 from guardian_br.core.kms import EnvKMSProvider
 from guardian_br.core.sqlite_redact_store import SQLiteRedactStore
@@ -78,6 +82,15 @@ async def _make_kms_check(
     return _check
 
 
+async def _make_audit_check(
+    store: SQLiteRedactStore,
+) -> Callable[[], Awaitable[_CheckResult]]:
+    async def _check() -> _CheckResult:
+        return "ok" if store.ping() else "fail"
+
+    return _check
+
+
 async def _make_llama_guard_check(
     classifier: AdversarialClassifier,
     enabled: bool,
@@ -117,13 +130,48 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+        import warnings
+
+        from guardian_br.api import metrics as m
+
         store = SQLiteRedactStore()
         kms = EnvKMSProvider()
         classifier = build_default_classifier(resolved_settings)
+
+        salt_b64 = (
+            resolved_settings.audit_salt.get_secret_value()
+            if resolved_settings.audit_salt
+            else None
+        )
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter("always")
+            audit_salt = load_salt(salt_b64)
+
+        hmac_secret: bytes | None = None
+        if resolved_settings.audit_hmac_chain and resolved_settings.audit_hmac_secret:
+            import base64
+
+            hmac_secret = base64.b64decode(
+                resolved_settings.audit_hmac_secret.get_secret_value()
+            )
+
+        fallback = FallbackAuditWriter(resolved_settings.audit_fallback_path)
+        auditor = Auditor(
+            store=store,
+            salt=audit_salt,
+            salt_key_id=resolved_settings.audit_salt_key_id,
+            hmac_chain=resolved_settings.audit_hmac_chain,
+            hmac_secret=hmac_secret,
+            fallback=fallback,
+            on_write_ok=lambda et: m.AUDIT_WRITES.labels(event_type=et, outcome="ok").inc(),
+            on_fallback=lambda r: m.AUDIT_FALLBACK.labels(reason=r).inc(),
+        )
+
         guardian = Guardian(
             redact_store=store,
             kms=kms,
             classifier=classifier,
+            auditor=auditor,
             mode_default=resolved_settings.default_mode,
         )
         guardian.warm_up()
@@ -147,11 +195,14 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
             "llama_guard",
             await _make_llama_guard_check(classifier, resolved_settings.adversarial_enabled),
         )
+        health.register("audit_log", await _make_audit_check(store))
 
         app.state.guardian = guardian
         app.state.settings = resolved_settings
         app.state.health = health
         app.state.classifier = classifier
+        app.state.store = store
+        app.state.auditor = auditor
 
         yield
 
@@ -171,6 +222,7 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
 
     app.include_router(scan_router, prefix="/v1", tags=["scan"])
     app.include_router(unmask_router, prefix="/v1", tags=["unmask"])
+    app.include_router(audit_router, prefix="/v1", tags=["audit"])
     app.include_router(health_router, prefix="/v1", tags=["health"])
     app.include_router(metrics_router, prefix="/v1", tags=["observability"])
 

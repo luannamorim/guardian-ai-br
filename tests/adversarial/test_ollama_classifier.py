@@ -7,12 +7,18 @@ import httpx
 from guardian_br.adversarial.ollama_classifier import OllamaClassifier
 
 
-def _make_transport(classify_content: str, tags_model: str = "llama-guard3:8b") -> httpx.MockTransport:
+def _make_transport(
+    classify_content: str, tags_model: str = "llama-guard3:8b"
+) -> httpx.MockTransport:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/api/tags":
             return httpx.Response(200, json={"models": [{"name": tags_model}]})
         if request.url.path == "/api/chat":
-            body = {"model": "llama-guard3:8b", "message": {"role": "assistant", "content": classify_content}, "done": True}
+            body = {
+                "model": "llama-guard3:8b",
+                "message": {"role": "assistant", "content": classify_content},
+                "done": True,
+            }
             return httpx.Response(200, json=body)
         return httpx.Response(404)
 
@@ -58,7 +64,10 @@ def test_cache_hit_on_second_call() -> None:
         nonlocal call_count
         if request.url.path == "/api/chat":
             call_count += 1
-        return httpx.Response(200, json={"model": "x", "message": {"role": "assistant", "content": "safe"}, "done": True})
+        return httpx.Response(
+            200,
+            json={"model": "x", "message": {"role": "assistant", "content": "safe"}, "done": True},
+        )
 
     clf = _make_classifier(httpx.MockTransport(handler))
     clf.classify("mesmo texto")
