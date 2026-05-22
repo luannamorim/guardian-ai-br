@@ -1,8 +1,20 @@
-# Guardian-BR
+<div align="center">
+
+<img src=".github/assets/banner.svg" alt="Guardian-BR" width="380"/>
+
+[![CI](https://github.com/luannamorim/guardian-ai-br/actions/workflows/ci.yml/badge.svg)](https://github.com/luannamorim/guardian-ai-br/actions/workflows/ci.yml)
+![Release](https://img.shields.io/badge/release-v0.1.0-blue)
+![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue?logo=python)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+![License](https://img.shields.io/badge/license-Apache%202.0-green)
+![LGPD](https://img.shields.io/badge/LGPD-mapped-7c3aed)
+![Stack](https://img.shields.io/badge/Presidio%20%2B%20Llama%20Guard%203-orange)
 
 Brazilian LLM guardrails: detects and masks BR PII (CPF, CNPJ, RG, CNH, título de eleitor, PIS), classifies PT-BR adversarial prompts, and maps every guardrail to its LGPD article.
 
 Distributed as `pip install guardrails-br` and a Docker REST API sidecar.
+
+</div>
 
 ## Quick start
 
