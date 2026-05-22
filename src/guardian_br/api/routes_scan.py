@@ -42,10 +42,12 @@ async def scan_endpoint(
             principal_id=principal.id,
             client_ip=request.client.host if request.client else None,
             request_fingerprint=_fingerprint(request),
+            shadow=body.shadow,
         )
         elapsed = time.perf_counter() - t0
         mode_label = result.mode.value
-        m.SCAN_TOTAL.labels(mode=mode_label, outcome="ok").inc()
+        outcome = "shadow_block" if result.shadow and result.would_block else "ok"
+        m.SCAN_TOTAL.labels(mode=mode_label, outcome=outcome).inc()
         m.SCAN_LATENCY.labels(mode=mode_label).observe(elapsed)
         for det in result.detections:
             m.DETECTION_TOTAL.labels(

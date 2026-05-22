@@ -65,6 +65,22 @@ Every scan, unmask, and auth failure produces an append-only audit row in SQLite
 | `sha256:<hex>` | `/v1/scan`, `/v1/unmask` |
 | `sha256:<hex>:audit:read` | `/v1/audit` (also scan/unmask) |
 
+## Shadow mode
+
+Preview a `BLOCK` policy without taking action. The scan never raises;
+the audit log records what would have been blocked.
+
+```python
+from guardian_br import Guardian, Mode
+
+g = Guardian(mode_default=Mode.BLOCK, shadow_mode=True)
+result = g.scan("meu cpf eh 123.456.789-09")
+assert result.blocked is False and result.would_block is True
+```
+
+Set `GUARDIAN_BR_SHADOW_MODE=true` in the container, or pass
+`"shadow": true` on a single `/v1/scan` request.
+
 ## Custom recognizers
 
 Register company-specific identifiers without subclassing Presidio:

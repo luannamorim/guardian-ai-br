@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     api_keys_hashed: frozenset[str] = frozenset()
     rate_limit_per_key: str = "100/second"
     default_mode: Mode = Mode.REDACT
+    shadow_mode: bool = False
     metrics_require_auth: bool = True
     max_text_len: int = 10_240
     ollama_base_url: str = "http://localhost:11434"

@@ -165,6 +165,7 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
             classifier=classifier,
             auditor=auditor,
             mode_default=resolved_settings.default_mode,
+            shadow_mode=resolved_settings.shadow_mode,
         )
         guardian.warm_up()
 

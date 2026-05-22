@@ -19,6 +19,7 @@ class ScanRequest(BaseModel):
     text: str = Field(min_length=1)
     mode: Mode | None = None
     skip_adversarial: bool = False
+    shadow: bool | None = None
 
 
 class UnmaskRequest(BaseModel):

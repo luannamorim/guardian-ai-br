@@ -75,6 +75,7 @@ class SQLiteRedactStore:
                 adversarial_label   TEXT,
                 adversarial_unsafe  INTEGER,
                 blocked             INTEGER,
+                would_block         INTEGER,
                 handle              TEXT,
                 entity_type         TEXT,
                 hmac_prev           TEXT,
@@ -85,6 +86,11 @@ class SQLiteRedactStore:
             CREATE INDEX IF NOT EXISTS idx_audit_principal
                 ON audit_log(principal_id);
         """)
+        existing_cols = {
+            row[1] for row in self._conn.execute("PRAGMA table_info(audit_log)").fetchall()
+        }
+        if "would_block" not in existing_cols:
+            self._conn.execute("ALTER TABLE audit_log ADD COLUMN would_block INTEGER")
 
     def put(self, record: RedactRecord) -> None:
         expires = record.expires_at.isoformat() if record.expires_at else None
@@ -174,8 +180,8 @@ class SQLiteRedactStore:
                 id, timestamp, event_type, principal_id, client_ip,
                 request_fingerprint, input_hash, salt_key_id, mode, latency_ms,
                 detections, adversarial_label, adversarial_unsafe, blocked,
-                handle, entity_type, hmac_prev, hmac_self
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                would_block, handle, entity_type, hmac_prev, hmac_self
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 row.id,
@@ -192,6 +198,7 @@ class SQLiteRedactStore:
                 row.adversarial_label,
                 int(row.adversarial_unsafe) if row.adversarial_unsafe is not None else None,
                 int(row.blocked) if row.blocked is not None else None,
+                int(row.would_block) if row.would_block is not None else None,
                 row.handle,
                 row.entity_type,
                 row.hmac_prev,
@@ -221,7 +228,7 @@ class SQLiteRedactStore:
             SELECT id, timestamp, event_type, principal_id, client_ip,
                    request_fingerprint, input_hash, salt_key_id, mode, latency_ms,
                    detections, adversarial_label, adversarial_unsafe, blocked,
-                   handle, entity_type, hmac_prev, hmac_self
+                   would_block, handle, entity_type, hmac_prev, hmac_self
             FROM audit_log
             {where}
             ORDER BY timestamp DESC
@@ -248,6 +255,7 @@ def _row_to_audit(r: tuple) -> AuditRow:  # type: ignore[type-arg]
         adversarial_label,
         adversarial_unsafe,
         blocked,
+        would_block,
         handle,
         entity_type,
         hmac_prev,
@@ -268,6 +276,7 @@ def _row_to_audit(r: tuple) -> AuditRow:  # type: ignore[type-arg]
         adversarial_label=adversarial_label,
         adversarial_unsafe=bool(adversarial_unsafe) if adversarial_unsafe is not None else None,
         blocked=bool(blocked) if blocked is not None else None,
+        would_block=bool(would_block) if would_block is not None else None,
         handle=handle,
         entity_type=entity_type,
         hmac_prev=hmac_prev,

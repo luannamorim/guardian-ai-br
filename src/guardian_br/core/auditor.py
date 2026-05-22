@@ -109,6 +109,7 @@ class Auditor:
         adversarial: AdversarialResult | None,
         latency_ms: float,
         blocked: bool,
+        would_block: bool = False,
     ) -> None:
         if input_hash is None:
             from guardian_br.core.audit_hash import salted_hash
@@ -133,6 +134,7 @@ class Auditor:
             adversarial_label=adversarial.label if adversarial else None,
             adversarial_unsafe=adversarial.unsafe if adversarial else None,
             blocked=blocked,
+            would_block=would_block,
         )
         self.append(row)
 

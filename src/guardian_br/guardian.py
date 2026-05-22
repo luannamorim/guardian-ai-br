@@ -63,6 +63,7 @@ class Guardian:
         mode_default: Mode = Mode.REDACT,
         dek_cache_ttl_s: int = 300,
         custom_recognizers: Sequence[CustomRecognizerSpec] | None = None,
+        shadow_mode: bool = False,
     ) -> None:
         self._analyzer = analyzer
         self._redact_store = redact_store
@@ -71,6 +72,7 @@ class Guardian:
         self._auditor = auditor
         self._mode_default = mode_default
         self._dek_cache = DEKCache(ttl_s=dek_cache_ttl_s)
+        self._shadow_mode = shadow_mode
         self._custom_recognizers: tuple[CustomRecognizerSpec, ...] = tuple(custom_recognizers or ())
         self._custom_entity_lgpd: dict[str, str] = {
             spec.entity_type: spec.lgpd_article
@@ -84,6 +86,10 @@ class Guardian:
     @property
     def mode_default(self) -> Mode:
         return self._mode_default
+
+    @property
+    def shadow_mode(self) -> bool:
+        return self._shadow_mode
 
     def warm_up(self) -> None:
         """Force lazy initialization of the analyzer engine and classifier."""
@@ -135,6 +141,7 @@ class Guardian:
         principal_id: str | None = None,
         client_ip: str | None = None,
         request_fingerprint: str | None = None,
+        shadow: bool | None = None,
     ) -> ScanResult:
         """Scan *text* for BR PII and return a frozen ScanResult.
 
@@ -146,9 +153,15 @@ class Guardian:
         REVERSIBLE_REDACT: replaces each span with ``<RDX:{handle}>``
             and stores the encrypted original (AES-256-GCM) so it can be
             recovered via unmask(handle).
+
+        ``shadow`` overrides the instance's ``shadow_mode``. When True and
+        the effective mode is BLOCK, the scan never raises: instead it
+        records ``would_block=True`` to the audit log and returns a redacted
+        result so callers can roll out a BLOCK policy without impact.
         """
         t_total = time.perf_counter()
         effective_mode = mode if mode is not None else self._mode_default
+        effective_shadow = shadow if shadow is not None else self._shadow_mode
         analyzer = self._get_analyzer()
         mapping = load_lgpd_mapping()
 
@@ -200,9 +213,10 @@ class Guardian:
                 latency_ms_adv = (time.perf_counter() - t_adv) * 1000
 
             latency_ms = (time.perf_counter() - t_total) * 1000
-            is_blocked = effective_mode is Mode.BLOCK and (
+            would_block_now = effective_mode is Mode.BLOCK and (
                 bool(detections) or (adv is not None and adv.unsafe)
             )
+            is_blocked = would_block_now and not effective_shadow
             input_hash = self._get_auditor().hash_input(text)
 
             if span:
@@ -229,8 +243,15 @@ class Guardian:
                     )
                 if input_hash:
                     span.set_attribute("guardian.input_hash", input_hash)
-                decision = "blocked" if is_blocked else "allowed"
+                if effective_shadow and would_block_now:
+                    decision = "shadow_block"
+                elif is_blocked:
+                    decision = "blocked"
+                else:
+                    decision = "allowed"
                 span.set_attribute("guardian.decision", decision)
+                span.set_attribute("guardian.shadow", effective_shadow)
+                span.set_attribute("guardian.would_block", would_block_now)
                 if is_blocked:
                     span.set_status(_otel_trace.StatusCode.ERROR, "blocked")
 
@@ -245,14 +266,33 @@ class Guardian:
                 adversarial=adv,
                 latency_ms=latency_ms,
                 blocked=is_blocked,
+                would_block=would_block_now,
             )
 
             if effective_mode is Mode.BLOCK:
                 if is_blocked:
                     raise BlockedError(detections, adversarial=adv)
+                if would_block_now and effective_shadow:
+                    # Shadow: produce redacted text so callers can compare
+                    # what the live policy would have returned.
+                    def shadow_placeholder(d: Detection) -> str:
+                        return f"<{d.entity_type}>"
+
+                    redacted_text = _redact(text, detections, shadow_placeholder)
+                    return ScanResult(
+                        mode=effective_mode,
+                        blocked=False,
+                        shadow=True,
+                        would_block=True,
+                        text=text,
+                        detections=detections,
+                        redacted_text=redacted_text,
+                        adversarial=adv,
+                    )
                 return ScanResult(
                     mode=effective_mode,
                     blocked=False,
+                    shadow=effective_shadow,
                     text=text,
                     detections=[],
                     redacted_text=text,
@@ -272,6 +312,8 @@ class Guardian:
             redacted_text = _redact(text, detections, placeholder_fn)
             return ScanResult(
                 mode=effective_mode,
+                shadow=effective_shadow,
+                would_block=would_block_now,
                 text=text,
                 detections=detections,
                 redacted_text=redacted_text,

@@ -30,6 +30,8 @@ class ScanResult(BaseModel):
     schema_version: Literal["3"] = SCHEMA_VERSION
     mode: Mode = Mode.REDACT
     blocked: bool = False
+    shadow: bool = False
+    would_block: bool = False
     text: str
     detections: list[Detection]
     redacted_text: str

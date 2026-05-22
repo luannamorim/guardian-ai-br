@@ -43,6 +43,7 @@ class AuditRow(BaseModel):
     adversarial_label: str | None = None
     adversarial_unsafe: bool | None = None
     blocked: bool | None = None
+    would_block: bool | None = None
     handle: str | None = None
     entity_type: str | None = None
     hmac_prev: str | None = None
