@@ -125,6 +125,8 @@ Adapter packages never live in core; core stays slim and importable without clou
 ## References
 
 - Specification: [`SPEC.md`](./SPEC.md)
-- Architecture: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) (to be written)
-- LGPD mapping: [`docs/LGPD_MAPPING.md`](./docs/LGPD_MAPPING.md) (to be written)
+- Architecture: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
+- LGPD mapping: [`docs/LGPD_MAPPING.md`](./docs/LGPD_MAPPING.md)
+- Alerts: [`docs/alerts.md`](./docs/alerts.md)
+- **V1 freeze checklist (open items, read first when resuming on a new machine):** [`docs/V1_FREEZE_CHECKLIST.md`](./docs/V1_FREEZE_CHECKLIST.md)
 - Eval corpus: `evals/pii_corpus.jsonl` + `evals/adversarial_corpus.jsonl`
