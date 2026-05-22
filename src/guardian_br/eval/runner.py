@@ -132,12 +132,141 @@ def _score_adversarial(
     return stats, latencies
 
 
+def _score_pii_baseline(
+    rows: list[dict[str, Any]], baseline: Any
+) -> tuple[dict[str, dict[str, int]], list[float]]:
+    """Score PII performance for any Baseline."""
+    stats: dict[str, dict[str, int]] = {}
+    latencies: list[float] = []
+    for row in rows:
+        text: str = row["text"]
+        gold_labels: list[dict[str, Any]] = row.get("labels", [])
+        t0 = time.perf_counter()
+        predicted = baseline.scan_pii(text)
+        latencies.append((time.perf_counter() - t0) * 1000)
+
+        for gold in gold_labels:
+            etype = gold["type"]
+            entry = stats.setdefault(etype, {"tp": 0, "fn": 0, "fp": 0})
+            matched = any(
+                getattr(d, "entity_type", None) == etype
+                and _spans_overlap(d.start, d.end, gold["start"], gold["end"])
+                for d in predicted
+            )
+            if matched:
+                entry["tp"] += 1
+            else:
+                entry["fn"] += 1
+        for det in predicted:
+            etype = getattr(det, "entity_type", None) or "unknown"
+            entry = stats.setdefault(etype, {"tp": 0, "fn": 0, "fp": 0})
+            gold_match = any(
+                lbl["type"] == etype
+                and _spans_overlap(det.start, det.end, lbl["start"], lbl["end"])
+                for lbl in gold_labels
+            )
+            if not gold_match:
+                entry["fp"] += 1
+    return stats, latencies
+
+
+def _score_adv_baseline(
+    rows: list[dict[str, Any]], baseline: Any
+) -> tuple[dict[str, dict[str, int]], list[float]]:
+    """Score adversarial performance for any Baseline."""
+    stats: dict[str, dict[str, int]] = {}
+    latencies: list[float] = []
+    for row in rows:
+        text: str = row["text"]
+        gold_adv: bool = bool(row.get("adversarial", False))
+        category: str = row.get("category", "unknown")
+        entry = stats.setdefault(category, {"tp": 0, "fn": 0, "fp": 0, "tn": 0})
+        t0 = time.perf_counter()
+        predicted_unsafe = baseline.classify_adversarial(text)
+        latencies.append((time.perf_counter() - t0) * 1000)
+        if gold_adv and predicted_unsafe:
+            entry["tp"] += 1
+        elif gold_adv and not predicted_unsafe:
+            entry["fn"] += 1
+        elif not gold_adv and predicted_unsafe:
+            entry["fp"] += 1
+        else:
+            entry["tn"] += 1
+    return stats, latencies
+
+
+def _aggregate_pii(stats: dict[str, dict[str, int]]) -> tuple[int, int, int]:
+    tp = sum(s["tp"] for s in stats.values())
+    fn = sum(s["fn"] for s in stats.values())
+    fp = sum(s["fp"] for s in stats.values())
+    return tp, fn, fp
+
+
+def _aggregate_adv(stats: dict[str, dict[str, int]]) -> tuple[int, int, int, int]:
+    tp = sum(s["tp"] for s in stats.values())
+    fn = sum(s["fn"] for s in stats.values())
+    fp = sum(s["fp"] for s in stats.values())
+    tn = sum(s["tn"] for s in stats.values())
+    return tp, fn, fp, tn
+
+
+def _percentile(values: list[float], pct: float) -> float:
+    if not values:
+        return 0.0
+    sorted_v = sorted(values)
+    idx = min(len(sorted_v) - 1, int(len(sorted_v) * pct))
+    return sorted_v[idx]
+
+
+def _format_comparison(
+    pii_results: dict[str, tuple[dict[str, dict[str, int]], list[float]]],
+    adv_results: dict[str, tuple[dict[str, dict[str, int]], list[float]]],
+) -> list[str]:
+    """Render the side-by-side baseline comparison tables."""
+    lines: list[str] = []
+    if pii_results:
+        lines.append("## PII Comparison vs. Baselines")
+        lines.append("")
+        lines.append("| Baseline | TP | FN | FP | Recall | Precision | p50 (ms) | p95 (ms) |")
+        lines.append("|----------|----|----|-----|--------|-----------|----------|----------|")
+        for name, (stats, lats) in pii_results.items():
+            tp, fn, fp = _aggregate_pii(stats)
+            recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+            precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+            p50 = statistics.median(lats) if lats else 0.0
+            p95 = _percentile(lats, 0.95)
+            lines.append(
+                f"| {name} | {tp} | {fn} | {fp} | {recall:.1%} | {precision:.1%} | "
+                f"{p50:.1f} | {p95:.1f} |"
+            )
+        lines.append("")
+    if adv_results:
+        lines.append("## Adversarial Comparison vs. Baselines")
+        lines.append("")
+        lines.append("| Baseline | TP | FN | FP | TN | Recall | Precision | p50 (ms) | p95 (ms) |")
+        lines.append("|----------|----|----|-----|----|--------|-----------|----------|----------|")
+        for name, (stats, lats) in adv_results.items():
+            tp, fn, fp, tn = _aggregate_adv(stats)
+            recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+            precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+            p50 = statistics.median(lats) if lats else 0.0
+            p95 = _percentile(lats, 0.95)
+            lines.append(
+                f"| {name} | {tp} | {fn} | {fp} | {tn} | {recall:.1%} | {precision:.1%} | "
+                f"{p50:.1f} | {p95:.1f} |"
+            )
+        lines.append("")
+    return lines
+
+
 def _format_report(
     stats: dict[str, dict[str, int]],
     latencies: list[float],
     category: str,
     corpus_path: Path,
     adversarial_stats: dict[str, dict[str, int]] | None = None,
+    comparison_pii: dict[str, tuple[dict[str, dict[str, int]], list[float]]] | None = None,
+    comparison_adv: dict[str, tuple[dict[str, dict[str, int]], list[float]]] | None = None,
 ) -> str:
     lines: list[str] = []
     lines.append("# Guardian-BR Eval Report")
@@ -188,6 +317,11 @@ def _format_report(
         lines.append(f"- p99: {p99:.1f} ms")
         lines.append("")
 
+    if comparison_pii or comparison_adv:
+        lines.extend(
+            _format_comparison(comparison_pii or {}, comparison_adv or {})
+        )
+
     return "\n".join(lines)
 
 
@@ -222,6 +356,16 @@ def main(argv: list[str] | None = None) -> int:
         default="auto",
         help="Which scoring pass to run. Default: auto-detect from corpus shape.",
     )
+    parser.add_argument(
+        "--baselines",
+        nargs="*",
+        default=None,
+        help=(
+            "Baselines to compare against Guardian-BR. "
+            "Choices: plain-presidio, plain-llama-guard. "
+            "Pass with no values to skip baselines."
+        ),
+    )
     args = parser.parse_args(argv)
 
     if not args.corpus.exists():
@@ -255,8 +399,27 @@ def main(argv: list[str] | None = None) -> int:
             adv_stats, adv_latencies = _score_adversarial(rows, guardian)
             latencies = latencies + adv_latencies
 
+    comparison_pii: dict[str, tuple[dict[str, dict[str, int]], list[float]]] = {}
+    comparison_adv: dict[str, tuple[dict[str, dict[str, int]], list[float]]] = {}
+    if args.baselines:
+        from guardian_br.eval.baselines import build_baseline
+
+        for name in args.baselines:
+            print(f"Running baseline {name}...")
+            baseline = build_baseline(name)
+            if run_pii:
+                comparison_pii[name] = _score_pii_baseline(rows, baseline)
+            if run_adv:
+                comparison_adv[name] = _score_adv_baseline(rows, baseline)
+
     report = _format_report(
-        pii_stats, latencies, args.category, args.corpus, adversarial_stats=adv_stats
+        pii_stats,
+        latencies,
+        args.category,
+        args.corpus,
+        adversarial_stats=adv_stats,
+        comparison_pii=comparison_pii or None,
+        comparison_adv=comparison_adv or None,
     )
     args.out.write_text(report, encoding="utf-8")
     print(f"Report written to {args.out}")
