@@ -34,3 +34,6 @@ jobs:
 
       - name: Benchmark (CPF recall gate)
         run: make eval-quick CATEGORY=cpf
+
+      - name: Eval gate (PII recall must stay >= 99%)
+        run: make eval-gate

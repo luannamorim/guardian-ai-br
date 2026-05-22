@@ -1,7 +1,7 @@
 CORPUS ?= evals/pii_corpus.jsonl
 CATEGORY ?= all
 
-.PHONY: eval eval-quick eval-adversarial eval-all eval-compare test lint format typecheck
+.PHONY: eval eval-quick eval-adversarial eval-all eval-compare eval-gate test lint format typecheck
 
 eval:
 	uv run python -m guardian_br.eval --corpus $(CORPUS)
@@ -15,6 +15,9 @@ eval-adversarial:
 eval-all:
 	uv run python -m guardian_br.eval --corpus evals/pii_corpus.jsonl --mode pii
 	uv run python -m guardian_br.eval --corpus evals/adversarial_corpus.jsonl --mode adversarial --out eval_report_adversarial.md
+
+eval-gate:
+	uv run python -m guardian_br.eval.gate --corpus evals/pii_corpus.jsonl --min-pii-recall 0.99
 
 eval-compare:
 	uv run python -m guardian_br.eval --corpus evals/pii_corpus.jsonl --mode pii \
