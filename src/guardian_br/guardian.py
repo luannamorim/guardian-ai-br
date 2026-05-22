@@ -4,7 +4,7 @@ import contextlib
 import json
 import time
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -27,12 +27,12 @@ from guardian_br.core.modes import Mode
 from guardian_br.core.redact_store import RedactRecord, RedactStore
 from guardian_br.core.schemas import Detection, ScanResult
 from guardian_br.lgpd.loader import load_lgpd_mapping
+from guardian_br.pii.custom import CustomRecognizerSpec
 
 if TYPE_CHECKING:
     from guardian_br.core.auditor import Auditor
 
 _DEFAULT_HANDLE_TTL_S = 86_400  # 24 hours
-_ENTITY_LIST: list[str] = list(BR_ENTITIES)
 _TRACER = _otel_trace.get_tracer("guardian_br") if _OTEL_AVAILABLE else None
 
 
@@ -62,6 +62,7 @@ class Guardian:
         auditor: Auditor | None = None,
         mode_default: Mode = Mode.REDACT,
         dek_cache_ttl_s: int = 300,
+        custom_recognizers: Sequence[CustomRecognizerSpec] | None = None,
     ) -> None:
         self._analyzer = analyzer
         self._redact_store = redact_store
@@ -70,6 +71,15 @@ class Guardian:
         self._auditor = auditor
         self._mode_default = mode_default
         self._dek_cache = DEKCache(ttl_s=dek_cache_ttl_s)
+        self._custom_recognizers: tuple[CustomRecognizerSpec, ...] = tuple(custom_recognizers or ())
+        self._custom_entity_lgpd: dict[str, str] = {
+            spec.entity_type: spec.lgpd_article
+            for spec in self._custom_recognizers
+            if spec.lgpd_article is not None
+        }
+        self._all_entities: list[str] = list(BR_ENTITIES) + [
+            spec.entity_type for spec in self._custom_recognizers
+        ]
 
     @property
     def mode_default(self) -> Mode:
@@ -87,7 +97,7 @@ class Guardian:
         if self._analyzer is None:
             from guardian_br.pii.registry import build_analyzer_engine
 
-            self._analyzer = build_analyzer_engine()
+            self._analyzer = build_analyzer_engine(custom_recognizers=self._custom_recognizers)
         return self._analyzer
 
     def _get_redact_store(self) -> RedactStore:
@@ -154,12 +164,16 @@ class Guardian:
                 results = analyzer.analyze(
                     text=text,
                     language="pt",
-                    entities=_ENTITY_LIST,
+                    entities=self._all_entities,
                 )
                 detections: list[Detection] = []
                 for r in results:
                     rule = mapping.rules.get(r.entity_type)
-                    lgpd_article = rule.lgpd_articles[0].article if rule else None
+                    lgpd_article = (
+                        rule.lgpd_articles[0].article
+                        if rule
+                        else self._custom_entity_lgpd.get(r.entity_type)
+                    )
                     detections.append(
                         Detection(
                             entity_type=r.entity_type,

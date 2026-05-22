@@ -65,6 +65,28 @@ Every scan, unmask, and auth failure produces an append-only audit row in SQLite
 | `sha256:<hex>` | `/v1/scan`, `/v1/unmask` |
 | `sha256:<hex>:audit:read` | `/v1/audit` (also scan/unmask) |
 
+## Custom recognizers
+
+Register company-specific identifiers without subclassing Presidio:
+
+```python
+from guardian_br import Guardian, CustomRecognizerSpec
+
+spec = CustomRecognizerSpec(
+    entity_type="ACME_ACCOUNT",
+    patterns=[r"ACME-\d{6}"],
+    context=["conta", "account"],
+    lgpd_article="Art. 5º, I",
+)
+g = Guardian(custom_recognizers=[spec])
+g.scan("minha conta ACME-123456").redacted_text
+# → "minha conta <ACME_ACCOUNT>"
+```
+
+Patterns are compiled with the `regex` library and inherit Guardian-BR's
+ReDoS backtrack timeout. An optional `validator` callable gates emissions
+(e.g. a company-internal checksum).
+
 ## Dashboard
 
 Streamlit dashboard showing violations over time, by PII type, by LGPD article, and top adversarial categories.
