@@ -1,6 +1,8 @@
 <div align="center">
 
-<img src=".github/assets/banner.svg" alt="Guardian-BR" width="380"/>
+<img src=".github/assets/banner.png" alt="Guardian-BR" width="500"/>
+
+**LGPD-compliant guardrails for Brazilian LLM apps.**
 
 [![CI](https://github.com/luannamorim/guardian-ai-br/actions/workflows/ci.yml/badge.svg)](https://github.com/luannamorim/guardian-ai-br/actions/workflows/ci.yml)
 ![Release](https://img.shields.io/badge/release-v0.1.0-blue)
@@ -15,6 +17,8 @@ Brazilian LLM guardrails: detects and masks BR PII (CPF, CNPJ, RG, CNH, título 
 Distributed as `pip install guardrails-br` and a Docker REST API sidecar.
 
 </div>
+
+---
 
 ## Quick start
 
