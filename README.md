@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src=".github/assets/banner.png" alt="Guardian-BR" width="500"/>
+<img src=".github/assets/banner.png" alt="Guardian-BR" width="350"/>
 
 **LGPD-compliant guardrails for Brazilian LLM apps.**
 
